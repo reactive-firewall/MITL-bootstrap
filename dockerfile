@@ -17,6 +17,7 @@ RUN apk add --no-cache \
     make \
     rsync \
     perl \
+    findutils \
     cmake \
     python3 \
     curl
