@@ -18,6 +18,9 @@ RUN apk add --no-cache \
     rsync \
     perl \
     findutils \
+    binutils \
+    bzip2 \
+    tar \
     cmake \
     python3 \
     curl
@@ -25,7 +28,8 @@ RUN apk add --no-cache \
 # Download and install Buildroot
 RUN mkdir -p /opt && \
     cd /opt && \
-    wget https://buildroot.org/downloads/buildroot-${BUILDROOT_VERSION}.tar.gz && \
+    curl --url "https://buildroot.org/downloads/buildroot-${BUILDROOT_VERSION}.tar.gz" \
+    -o buildroot-${BUILDROOT_VERSION}.tar.gz && \
     tar -xzf buildroot-${BUILDROOT_VERSION}.tar.gz && \
     rm buildroot-${BUILDROOT_VERSION}.tar.gz
 
