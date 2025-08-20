@@ -2,8 +2,12 @@
 FROM alpine:latest as builder
 
 # Set environment variables
-ENV TOYBOX_VERSION=0.8.5
+ENV TOYBOX_VERSION=0.8.12
 ENV PATH="/usr/local/bin:$PATH"
+ENV CC=clang
+ENV CXX=clang++
+ENV AR=llvm-ar
+ENV RANLIB=llvm-ranlib
 
 # Install necessary packages
 RUN apk add --no-cache \
@@ -30,27 +34,23 @@ RUN mkdir -p /opt && \
 
 WORKDIR /opt/toybox
 
-# Set environment variables for Clang
-ENV CC=clang
-ENV CXX=clang++
-ENV AR=llvm-ar
-ENV RANLIB=llvm-ranlib
-
 # Copy the Toybox configuration file
 COPY toybox_dot_config .config
 
-# Compile Toybox
-RUN make && \
-    make install DESTDIR=/output
+# Ensure a deterministic default config if none supplied
+RUN if [ ! -f .config ]; then make defconfig; fi
 
-# Mount the UFS filesystem
-RUN mkdir -p /output/rootfs/{bin,etc,lib,proc,sys} && \
-    cp /output/bin/toybox /output/rootfs/bin/ && \
-    # Copy musl libraries
-    cp -r /lib/ /output/rootfs/lib/ && \
-    ln -s /bin/toybox /output/rootfs/bin/{sh,ls,cp,mv,rm} && \
-    echo "root:x:0:0:root:/root:/bin/sh" > /output/rootfs/etc/passwd && \
-    echo "/dev/sda / ext4 defaults 0 1" > /output/rootfs/etc/fstab
+# Build static toybox binary and install into /output
+# Use V=1 for verbose output if errors occur
+# TOYBOX_STATIC=1 forces static linking (recommended for scratch)
+RUN make V=1 CFLAGS="-static -Os" LDFLAGS="-static" TOYBOX_STATIC=1 \
+ && mkdir -p /output/bin /output/etc \
+ && make install PREFIX=/usr DESTDIR=/output
+
+# create minimal /etc/passwd and fstab for runtime
+RUN printf "root:x:0:0:root:/root:/bin/sh\n" > /output/etc/passwd \
+ && printf "%s\n" "/dev/sda / ext4 defaults 0 1" > /output/etc/fstab
+
 
 # Stage 2: Create the final image
 FROM scratch as mitl-bootstrap
@@ -59,5 +59,5 @@ FROM scratch as mitl-bootstrap
 COPY --from=builder /output/rootfs /
 
 # Set the entry point to Toybox
-ENTRYPOINT ["/bin/toybox"]
+ENTRYPOINT ["/usr/bin/toybox"]
 CMD ["sh"]
