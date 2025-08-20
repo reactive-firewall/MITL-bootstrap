@@ -12,7 +12,7 @@ RUN apk add --no-cache \
     musl-dev \
     bash \
     make \
-    curl \
+    curl
 
 # Download and install Toybox
 RUN mkdir -p /opt && \
