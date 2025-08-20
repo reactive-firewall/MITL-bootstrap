@@ -40,7 +40,8 @@ ENV AR=llvm-ar
 ENV RANLIB=llvm-ranlib
 
 # Compile Toybox
-RUN make && \
+RUN make || \
+    less generated/flags.raw && \
     make install DESTDIR=/output
 
 # Mount the UFS filesystem
