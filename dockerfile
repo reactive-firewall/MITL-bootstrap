@@ -30,14 +30,18 @@ RUN mkdir -p /opt && \
 
 WORKDIR /opt/toybox
 
-# Copy the Toybox configuration file
-COPY toybox_dot_config .config
-
 # Set environment variables for Clang
 ENV CC=clang
 ENV CXX=clang++
 ENV AR=llvm-ar
 ENV RANLIB=llvm-ranlib
+
+RUN make defconfig && \
+    less .config && \
+    rm .config
+
+# Copy the Toybox configuration file
+COPY toybox_dot_config .config
 
 # Compile Toybox
 RUN make && \
