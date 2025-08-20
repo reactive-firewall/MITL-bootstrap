@@ -2,7 +2,7 @@
 FROM alpine:latest as builder
 
 # Set environment variables
-ENV TOYBOX_VERSION=0.8.5  # Specify the Toybox version you want to use
+ENV TOYBOX_VERSION=0.8.5
 ENV PATH="/usr/local/bin:$PATH"
 
 # Install necessary packages
