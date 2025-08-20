@@ -26,16 +26,18 @@ RUN mkdir -p /opt && \
     -o toybox-${TOYBOX_VERSION}.tar.gz && \
     tar -xzf toybox-${TOYBOX_VERSION}.tar.gz && \
     rm toybox-${TOYBOX_VERSION}.tar.gz && \
-    cd toybox-${TOYBOX_VERSION}
+    mv /opt/toybox-${TOYBOX_VERSION} /opt/toybox
+
+WORKDIR /opt/toybox
 
 # Copy the Toybox configuration file
 COPY toybox_dot_config .config
 
 # Set environment variables for Clang
 ENV CC=clang
-ENV export CXX=clang++
-ENV export AR=llvm-ar
-ENV export RANLIB=llvm-ranlib
+ENV CXX=clang++
+ENV AR=llvm-ar
+ENV RANLIB=llvm-ranlib
 
 # Compile Toybox
 RUN make && \
