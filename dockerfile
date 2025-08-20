@@ -12,12 +12,14 @@ RUN apk add --no-cache \
     musl-dev \
     bash \
     make \
-    curl
+    curl \
+    tar
 
 # Download and install Toybox
 RUN mkdir -p /opt && \
     cd /opt && \
-    curl --url "https://github.com/landley/toybox/archive/refs/tags/${TOYBOX_VERSION}.tar.gz" \
+    curl -fsSL \
+    --url "https://github.com/landley/toybox/archive/refs/tags/${TOYBOX_VERSION}.tar.gz" \
     -o toybox-${TOYBOX_VERSION}.tar.gz && \
     tar -xzf toybox-${TOYBOX_VERSION}.tar.gz && \
     rm toybox-${TOYBOX_VERSION}.tar.gz && \
