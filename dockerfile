@@ -2,55 +2,48 @@
 FROM alpine:latest as builder
 
 # Set environment variables
-ENV BUILDROOT_VERSION=2025.02
-ENV TOOLCHAIN_PREFIX=/usr/local/toolchain
-ENV PATH="$TOOLCHAIN_PREFIX/bin:$PATH"
+ENV TOYBOX_VERSION=0.8.5  # Specify the Toybox version you want to use
+ENV PATH="/usr/local/bin:$PATH"
 
 # Install necessary packages
 RUN apk add --no-cache \
     build-base \
     clang \
     musl-dev \
-    git \
-    wget \
     bash \
     make \
-    rsync \
-    perl \
-    findutils \
-    binutils \
-    bzip2 \
-    tar \
-    cmake \
-    python3 \
-    curl
+    curl \
+    ufs-utils  # Install UFS utilities
 
-# Download and install Buildroot
+# Download and install Toybox
 RUN mkdir -p /opt && \
     cd /opt && \
-    curl --url "https://buildroot.org/downloads/buildroot-${BUILDROOT_VERSION}.tar.gz" \
-    -o buildroot-${BUILDROOT_VERSION}.tar.gz && \
-    tar -xzf buildroot-${BUILDROOT_VERSION}.tar.gz && \
-    rm buildroot-${BUILDROOT_VERSION}.tar.gz
+    curl --url "https://github.com/landley/toybox/archive/refs/tags/${TOYBOX_VERSION}.tar.gz" \
+    -o toybox-${TOYBOX_VERSION}.tar.gz && \
+    tar -xzf toybox-${TOYBOX_VERSION}.tar.gz && \
+    rm toybox-${TOYBOX_VERSION}.tar.gz && \
+    cd toybox-${TOYBOX_VERSION} && \
+    make && \
+    make install
 
-# Set up Buildroot configuration
-COPY bootstrap_defconfig /opt/buildroot-${BUILDROOT_VERSION}/configs/bootstrap_defconfig
+# Create a UFS filesystem
+RUN mkdir -p /rootfs && \
+    mkfs.ufs /rootfs.img  # Create a UFS image file
 
-# Set the working directory
-WORKDIR /opt/buildroot-${BUILDROOT_VERSION}
-
-# Build the toolchain and packages
-RUN make bootstrap_defconfig && \
-    make
+# Mount the UFS filesystem
+RUN mkdir -p /mnt/ufs && \
+    mount -o loop /rootfs.img /mnt/ufs && \
+    cp /usr/local/bin/toybox /mnt/ufs/bin/ && \
+    ln -s /bin/toybox /mnt/ufs/bin/{sh,ls,cp,mv,rm} && \
+    echo "root:x:0:0:root:/root:/bin/sh" > /mnt/ufs/etc/passwd && \
+    echo "/dev/sda / ufs defaults 0 1" > /mnt/ufs/etc/fstab && \
+    umount /mnt/ufs  # Unmount the UFS filesystem
 
 # Copy just the built root filesystem to a clean new stage
 FROM scratch as mitl-bootstrap
 
-# Copy the built root filesystem from the builder stage
-COPY --from=builder /opt/buildroot-${BUILDROOT_VERSION}/output/images/rootfs.tar /rootfs.tar
-
-# Extract the root filesystem
-RUN tar -xf /rootfs.tar -C /
+# Copy the UFS image from the builder stage
+COPY --from=builder /rootfs.img /
 
 # Set the entrypoint to Toybox
 ENTRYPOINT ["/bin/toybox"]
