@@ -1,5 +1,5 @@
 # Use Alpine as the base image for the build environment
-FROM alpine:latest as builder
+FROM alpine:latest AS builder
 
 # Set environment variables
 ENV TOYBOX_VERSION=0.8.12
@@ -20,7 +20,12 @@ RUN apk add --no-cache \
     bash \
     genext2fs \
     curl \
-    tar
+    tar \
+    zlib-dev \
+    openssl-dev \
+    libattr-dev \
+    libcap-dev \
+    libbsd-dev
 
 # Download Toybox and musl
 RUN mkdir -p /opt && \
@@ -37,26 +42,46 @@ WORKDIR /opt/toybox
 # Copy the Toybox configuration file
 COPY toybox_dot_config .config
 
-# Ensure a deterministic default config if none supplied
-RUN if [ ! -f .config ]; then make defconfig; fi
+# Force disabling external iconv if present in .config
+RUN if [ -f .config ]; then \
+      sed -i 's/^CONFIG_ICONV=.*/CONFIG_ICONV=n/' .config || true; \
+      sed -i 's/^CONFIG_TOYBOX_ICONV=.*/CONFIG_TOYBOX_ICONV=n/' .config || true; \
+    else \
+      make defconfig; \
+    fi
 
-# Build static toybox binary and install into /output
-# Use V=1 for verbose output if errors occur
-# TOYBOX_STATIC=1 forces static linking (recommended for scratch)
-RUN make V=1 CFLAGS="-static -Os" LDFLAGS="-static" TOYBOX_STATIC=1 \
- && mkdir -p /output/bin /output/etc \
+# Verify config
+RUN grep -E '^CONFIG_(ICONV|TOYBOX_ICONV)=' .config || true
+
+# Build (dynamic): do NOT pass -static or TOYBOX_STATIC
+RUN make V=1 CC=clang CFLAGS="-O2 -fPIC" LDFLAGS="" \
+ && mkdir -p /output/usr/bin /output/etc /output/lib \
  && make install PREFIX=/usr DESTDIR=/output
 
-# create minimal /etc/passwd and fstab for runtime
-RUN printf "root:x:0:0:root:/root:/bin/sh\n" > /output/etc/passwd \
- && printf "%s\n" "/dev/sda / ext4 defaults 0 1" > /output/etc/fstab
+# Collect runtime shared libraries used by the built toybox and copy them into /output/lib
+RUN set -e; \
+    BIN=/output/usr/bin/toybox; \
+    if [ ! -f "$BIN" ]; then echo "toybox binary missing"; exit 1; fi; \
+    ldd "$BIN" | awk '/=>/ {print $(NF-1)}; /ld-musl/ {print $1}' | sort -u > /tmp/deps.txt; \
+    while read -r lib; do \
+      [ -z "$lib" ] && continue; \
+      cp -L --parents "$lib" /output || true; \
+    done < /tmp/deps.txt; \
+    # ensure /lib and /usr/lib exist
+    mkdir -p /output/lib /output/usr/lib
 
+# Minimal etc
+RUN printf "root:x:0:0:root:/root:/bin/sh\n" > /output/etc/passwd \
+ && printf "/dev/sda / ext4 defaults 0 1\n" > /output/etc/fstab
 
 # Stage 2: Create the final image
-FROM scratch as mitl-bootstrap
+FROM scratch AS mitl-bootstrap
 
-# Copy the root filesystem from the builder stage
-COPY --from=builder /output/rootfs /
+# Copy built files
+COPY --from=builder /output/ /
+
+# Ensure toybox is reachable at /bin/toybox (symlink if needed)
+COPY --from=builder /output/usr/bin/toybox /bin/toybox
 
 # Set the entry point to Toybox
 ENTRYPOINT ["/usr/bin/toybox"]
