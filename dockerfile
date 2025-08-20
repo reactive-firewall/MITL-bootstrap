@@ -20,7 +20,9 @@ RUN apk add --no-cache \
     bash \
     genext2fs \
     curl \
-    tar
+    tar \
+    openssl-dev \
+    libbsd-dev
 
 # Download Toybox and musl
 RUN mkdir -p /opt && \
