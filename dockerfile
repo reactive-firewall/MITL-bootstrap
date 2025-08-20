@@ -13,7 +13,6 @@ RUN apk add --no-cache \
     bash \
     make \
     curl \
-    ufs-utils  # Install UFS utilities
 
 # Download and install Toybox
 RUN mkdir -p /opt && \
@@ -26,24 +25,18 @@ RUN mkdir -p /opt && \
     make && \
     make install
 
-# Create a UFS filesystem
-RUN mkdir -p /rootfs && \
-    mkfs.ufs /rootfs.img  # Create a UFS image file
-
 # Mount the UFS filesystem
-RUN mkdir -p /mnt/ufs && \
-    mount -o loop /rootfs.img /mnt/ufs && \
-    cp /usr/local/bin/toybox /mnt/ufs/bin/ && \
-    ln -s /bin/toybox /mnt/ufs/bin/{sh,ls,cp,mv,rm} && \
-    echo "root:x:0:0:root:/root:/bin/sh" > /mnt/ufs/etc/passwd && \
-    echo "/dev/sda / ufs defaults 0 1" > /mnt/ufs/etc/fstab && \
-    umount /mnt/ufs  # Unmount the UFS filesystem
+RUN mkdir -p /rootfs/{bin,etc,lib,usr/bin} && \
+    cp /usr/local/bin/toybox /rootfs/bin/ && \
+    ln -s /bin/toybox /rootfs/bin/{sh,ls,cp,mv,rm} && \
+    echo "root:x:0:0:root:/root:/bin/toolbox" > /rootfs/etc/passwd && \
+    echo "/dev/sda / ext4 defaults 0 1" > /rootfs/etc/fstab
 
 # Copy just the built root filesystem to a clean new stage
 FROM scratch as mitl-bootstrap
 
 # Copy the UFS image from the builder stage
-COPY --from=builder /rootfs.img /
+COPY --from=builder /rootfs /
 
 # Set the entrypoint to Toybox
 ENTRYPOINT ["/bin/toybox"]
