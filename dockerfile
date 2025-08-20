@@ -24,6 +24,7 @@ RUN mkdir -p /opt && \
     tar -xzf toybox-${TOYBOX_VERSION}.tar.gz && \
     rm toybox-${TOYBOX_VERSION}.tar.gz && \
     cd toybox-${TOYBOX_VERSION} && \
+    make defconfig && \
     make && \
     make install
 
