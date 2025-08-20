@@ -36,10 +36,6 @@ ENV CXX=clang++
 ENV AR=llvm-ar
 ENV RANLIB=llvm-ranlib
 
-RUN make defconfig && \
-    less .config && \
-    rm .config
-
 # Copy the Toybox configuration file
 COPY toybox_dot_config .config
 
