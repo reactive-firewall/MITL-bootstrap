@@ -9,6 +9,8 @@ ENV CXX=clang++
 ENV AR=llvm-ar
 ENV RANLIB=llvm-ranlib
 ENV LDFLAGS="-fuse-ld=lld"
+ENV BSD=/usr/include/bsd
+ENV LINUX=/usr/include/linux
 
 # Install necessary packages
 RUN apk add --no-cache \
@@ -69,16 +71,11 @@ RUN make V=1 CC=clang CFLAGS="-O2 -fPIC -fno-common" LDFLAGS="${LDFLAGS}" toybox
     make install PREFIX=/usr DESTDIR=/output
 
 # Collect runtime shared libraries used by the built toybox and copy them into /output/lib
-RUN set -e; \
-    BIN=/output/usr/bin/toybox; \
-    if [ ! -f "$BIN" ]; then echo "toybox binary missing"; exit 1; fi; \
-    ldd "$BIN" | awk '/=>/ {print $(NF-1)}; /ld-musl/ {print $1}' | sort -u > /tmp/deps.txt; \
-    while read -r lib; do \
-      [ -z "$lib" ] && continue; \
-      cp -L --parents "$lib" /output || true; \
-    done < /tmp/deps.txt; \
-    # ensure /lib and /usr/lib exist
-    mkdir -p /output/lib /output/usr/lib
+RUN ls -lap /output && \
+    ls -lap /usr && \
+    ls -lap /opt/toybox && \
+    ls -lap /output/usr && \
+    ls -lap /output/usr/bin
 
 # Minimal etc
 RUN printf "root:x:0:0:root:/root:/bin/sh\n" > /output/etc/passwd \
