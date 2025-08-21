@@ -22,7 +22,9 @@ RUN apk add --no-cache \
     curl \
     tar \
     openssl-dev \
-    libbsd-dev
+    libbsd-dev \
+    lld \
+    zlib-dev
 
 # Download Toybox and musl
 RUN mkdir -p /opt && \
@@ -41,17 +43,29 @@ COPY toybox_dot_config .config
 
 # Force disabling external iconv if present in .config
 RUN if [ -f .config ]; then \
-      sed -i 's/^CONFIG_ICONV=.*/CONFIG_ICONV=n/' .config || true; \
-      sed -i 's/^CONFIG_TOYBOX_ICONV=.*/CONFIG_TOYBOX_ICONV=n/' .config || true; \
+    # force-disable optional libraries/features that cause probe failures
+    sed -i \
+    -e 's/^CONFIG_SELINUX=.*/CONFIG_SELINUX=n/' \
+    -e 's/^CONFIG_ICONV=.*/CONFIG_ICONV=n/' \
+    -e 's/^CONFIG_TOYBOX_ICONV=.*/CONFIG_TOYBOX_ICONV=n/' \
+    -e 's/^CONFIG_LIBZ=.*/CONFIG_LIBZ=n/' \
+    -e 's/^CONFIG_LZ4=.*/CONFIG_LZ4=n/' \
+    -e 's/^CONFIG_CRYPTO=.*/CONFIG_CRYPTO=n/' \
+    -e 's/^CONFIG_TOYBOX_LIBCRYPTO=.*/CONFIG_TOYBOX_LIBCRYPTO=n/' \
+    -e 's/^CONFIG_SELINUX=.*/CONFIG_SELINUX=n/' \
+    -e 's/^CONFIG_TOYBOX_SELINUX=.*/CONFIG_TOYBOX_SELINUX=n/' \
+    -e 's/^CONFIG_FEATURE_PING=.*/CONFIG_FEATURE_PING=n/' \
+    -e 's/^CONFIG_PING=.*/CONFIG_PING=n/' \
+    .config || true
     else \
       make defconfig; \
     fi
 
-# Verify config
-RUN grep -E '^CONFIG_(ICONV|TOYBOX_ICONV)=' .config || true
+# remove generated probe artifacts so make will re-probe using the new config
+RUN rm -rf generated || true
 
-# Build (dynamic): do NOT pass -static or TOYBOX_STATIC
-RUN make V=1 CC=clang CFLAGS="-O2 -fPIC" LDFLAGS="" \
+# build with clang and lld
+RUN make V=1 CC=clang CFLAGS="-O2 -fPIC -fno-common" LDFLAGS="${LDFLAGS}" \
  && mkdir -p /output/usr/bin /output/etc /output/lib \
  && make install PREFIX=/usr DESTDIR=/output
 
