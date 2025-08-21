@@ -73,7 +73,8 @@ RUN make V=1 CC=clang CFLAGS="-O2 -fPIC -fno-common" AR=llvm-ar LINUX="${LINUX}"
 RUN mv /opt/toybox/root/host/fs /output && \
     ls -lap /output/fs/usr && \
     ls -lap /output/fs/usr/bin && \
-    find / -iname "toybox" -type f ;
+    find / -iname "toybox" -type f && \
+    find /output/fs -iname "sh" -type f ;
 
 # Minimal etc
 RUN printf "root:x:0:0:root:/root:/bin/sh\n" > /output/fs/etc/passwd && \
