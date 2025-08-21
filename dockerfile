@@ -8,6 +8,7 @@ ENV CC=clang
 ENV CXX=clang++
 ENV AR=llvm-ar
 ENV RANLIB=llvm-ranlib
+ENV LDFLAGS="-fuse-ld=lld"
 
 # Install necessary packages
 RUN apk add --no-cache \
@@ -60,11 +61,10 @@ RUN if [ -f .config ]; then \
       make defconfig; \
     fi
 
-# remove generated probe artifacts so make will re-probe using the new config
-RUN rm -rf generated || true
+RUN rm -rf generated flags.* || true && make oldconfig || true
 
 # build with clang and lld
-RUN make V=1 CC=clang CFLAGS="-O2 -fPIC -fno-common" LDFLAGS="${LDFLAGS}" && \
+RUN make V=1 CC=clang CFLAGS="-O2 -fPIC -fno-common" LDFLAGS="${LDFLAGS}" toybox root && \
     mkdir -p /output/usr/bin /output/etc /output/lib && \
     make install PREFIX=/usr DESTDIR=/output
 
