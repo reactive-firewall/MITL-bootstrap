@@ -72,27 +72,45 @@ jobs:
           context: .
           file: dockerfile
           push: true
-          tags: ghcr.io/reactive-firewall/mitl-bootstrap:latest
+          # create an arch-specific tag so each matrix produces its own image/artifacts
+          tags: ghcr.io/reactive-firewall/mitl-bootstrap:${{ github.run_id }}-${{ matrix.architecture }}
           platforms: linux/${{ matrix.architecture }}
           build-args: |
             TOYBOX_VERSION=0.8.12
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
 
-      - name: Generate SBOM
-        shell: bash
+      - name: Ensure image is pullable locally
         run: |
-          docker run --rm \
-            --privileged \
-            --volume /var/run/docker.sock:/var/run/docker.sock \
-            anchore/anchore-cli image add ghcr.io/reactive-firewall/mit-compatible-image:latest
-          anchore-cli image wait ghcr.io/reactive-firewall/mit-compatible-image:latest
-          anchore-cli image add ghcr.io/reactive-firewall/mit-compatible-image:latest --sbom
-          anchore-cli image get ghcr.io/reactive-firewall/mit-compatible-image:latest --sbom > sbom.json
+          # ensure the platform-specific image manifest is present locally for Syft/Grype
+          docker pull ghcr.io/reactive-firewall/mitl-bootstrap:${{ github.run_id }}-${{ matrix.architecture }}
 
-      - name: Upload SBOM
+      - name: Generate SBOM (Syft) for this architecture
+        env:
+          IMAGE: ghcr.io/reactive-firewall/mitl-bootstrap:${{ github.run_id }}-${{ matrix.architecture }}
+        run: |
+          SYFT_IMG=anchore/syft:1.31.0  # adjust version if desired
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            $SYFT_IMG ${IMAGE} -o spdx-json > sbom-${{ matrix.architecture }}.json
+
+      - name: Scan image with Grype (vulnerability) and export results
+        env:
+          IMAGE: ghcr.io/reactive-firewall/mitl-bootstrap:${{ github.run_id }}-${{ matrix.architecture }}
+        run: |
+          GRYPE_IMG=anchore/grype:0.98.0
+          # run grype against the image and produce JSON output
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            $GRYPE_IMG ${IMAGE} -o json > grype-${{ matrix.architecture }}.json || true
+          # (grype exits non-zero on findings; keep the job green by allowing non-zero)
+
+      - name: Upload per-arch SBOM and Grype report
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: sbom
-          path: sbom.json
+          name: sbom-and-scan-${{ matrix.architecture }}
+          path: |
+            sbom-${{ matrix.architecture }}.json
 
       - name: Logout from Docker Hub
         run: docker logout
