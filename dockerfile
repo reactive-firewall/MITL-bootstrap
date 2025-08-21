@@ -70,24 +70,23 @@ RUN make V=1 CC=clang CFLAGS="-O2 -fPIC -fno-common" AR=llvm-ar LINUX="${LINUX}"
     mkdir -p /output/usr/bin /output/etc /output/lib && \
     make install PREFIX=/usr DESTDIR=/output
 
-# Collect runtime shared libraries used by the built toybox and copy them into /output/lib
 RUN mv /opt/toybox/root/host/fs /output && \
-    ls -lap /output/usr && \
-    ls -lap /output/usr/bin && \
+    ls -lap /output/fs/usr && \
+    ls -lap /output/fs/usr/bin && \
     find / -iname "toybox" -type f ;
 
 # Minimal etc
-RUN printf "root:x:0:0:root:/root:/bin/sh\n" > /output/etc/passwd && \
-    printf "/dev/sda / ext4 defaults 0 1\n" > /output/etc/fstab
+RUN printf "root:x:0:0:root:/root:/bin/sh\n" > /output/fs/etc/passwd && \
+    printf "/dev/sda / ext4 defaults 0 1\n" > /output/fs/etc/fstab
 
 # Stage 2: Create the final image
 FROM scratch AS mitl-bootstrap
 
 # Copy built files
-COPY --from=builder /output/ /
+COPY --from=builder /output/fs /
 
 # Ensure toybox is reachable at /bin/toybox (symlink if needed)
-COPY --from=builder /output/usr/bin/toybox /bin/toybox
+COPY --from=builder /output/fs/usr/bin/toybox /bin/toybox
 
 # Set the entry point to Toybox
 ENTRYPOINT ["/usr/bin/toybox"]
