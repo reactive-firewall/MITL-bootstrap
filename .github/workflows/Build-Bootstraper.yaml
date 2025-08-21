@@ -88,14 +88,14 @@ jobs:
       - name: Pull Syft and Grype images
         run: |
           # ensure the Syft and Grype images are available
-          docker pull anchore/syft:1.31.0
-          docker pull anchore/grype:0.98.0
+          docker pull anchore/syft:v1.31.0
+          docker pull anchore/grype:v0.98.0
 
       - name: Generate SBOM (Syft) for this architecture
         env:
           IMAGE: ghcr.io/reactive-firewall/mitl-bootstrap:${{ github.run_id }}-${{ matrix.architecture }}
         run: |
-          SYFT_IMG=anchore/syft:1.31.0  # adjust version if desired
+          SYFT_IMG=anchore/syft:v1.31.0  # adjust version if desired
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             $SYFT_IMG ${IMAGE} -o spdx-json > sbom-${{ matrix.architecture }}.json
@@ -104,7 +104,7 @@ jobs:
         env:
           IMAGE: ghcr.io/reactive-firewall/mitl-bootstrap:${{ github.run_id }}-${{ matrix.architecture }}
         run: |
-          GRYPE_IMG=anchore/grype:0.98.0
+          GRYPE_IMG=anchore/grype:v0.98.0
           # run grype against the image and produce JSON output
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
