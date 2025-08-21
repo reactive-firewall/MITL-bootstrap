@@ -73,7 +73,8 @@ RUN make V=1 CC=clang CFLAGS="-O2 -fPIC -fno-common" AR=llvm-ar LINUX="${LINUX}"
 # Collect runtime shared libraries used by the built toybox and copy them into /output/lib
 RUN mv /opt/toybox/root/host/fs /output && \
     ls -lap /output/usr && \
-    ls -lap /output/usr/bin
+    ls -lap /output/usr/bin && \
+    find / -iname "toybox" -type f ;
 
 # Minimal etc
 RUN printf "root:x:0:0:root:/root:/bin/sh\n" > /output/etc/passwd && \
