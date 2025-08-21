@@ -66,14 +66,14 @@ RUN if [ -f .config ]; then \
 RUN rm -rf generated flags.* || true && make oldconfig || true
 
 # build with clang and lld
-RUN make V=1 CC=clang CFLAGS="-O2 -fPIC -fno-common" LDFLAGS="${LDFLAGS}" toybox root && \
+RUN make V=1 CC=clang CFLAGS="-O2 -fPIC -fno-common" AR=llvm-ar LINUX="${LINUX}" LDFLAGS="${LDFLAGS}" toybox root && \
     mkdir -p /output/usr/bin /output/etc /output/lib && \
     make install PREFIX=/usr DESTDIR=/output
 
 # Collect runtime shared libraries used by the built toybox and copy them into /output/lib
 RUN ls -lap /output && \
-    ls -lap /usr && \
     ls -lap /opt/toybox && \
+    ls -lap /opt/toybox/root/host && \
     ls -lap /output/usr && \
     ls -lap /output/usr/bin
 
