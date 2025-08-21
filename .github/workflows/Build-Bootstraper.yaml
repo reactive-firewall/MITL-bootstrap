@@ -85,6 +85,12 @@ jobs:
           # ensure the platform-specific image manifest is present locally for Syft/Grype
           docker pull ghcr.io/reactive-firewall/mitl-bootstrap:${{ github.run_id }}-${{ matrix.architecture }}
 
+      - name: Pull Syft and Grype images
+        run: |
+          # ensure the Syft and Grype images are available
+          docker pull anchore/syft:1.31.0
+          docker pull anchore/grype:0.98.0
+
       - name: Generate SBOM (Syft) for this architecture
         env:
           IMAGE: ghcr.io/reactive-firewall/mitl-bootstrap:${{ github.run_id }}-${{ matrix.architecture }}
