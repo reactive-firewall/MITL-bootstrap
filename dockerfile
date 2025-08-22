@@ -13,6 +13,20 @@ ENV BSD=/usr/include/bsd
 ENV LINUX=/usr/include/linux
 
 # Install necessary packages
+# llvm - LLVM-apache-2
+# clang - llvm-apache-2
+# lld - llvm-apache-2
+# build-base - MIT
+# git - LGPL2+ - do not bundle - used to clone during bootstrap
+# musl-dev - MIT
+# linux-headers - GPL-2.0-only - do not bundle - only used until toolbox bash is compiled
+# libbsd-dev - BSD-3-Clause
+# bash - GPL-3.0 - do not bundle - only until toolbox bash is compiled to run bootstrap scripts
+# curl - curl License / MIT
+# tar - GPL-3.0-or-later - do not bundle - used to unarchive during bootstrap
+# openssl-dev - Apache-2.0
+# zlib-dev - zlib license
+
 RUN apk add --no-cache \
     llvm \
     clang \
@@ -21,7 +35,6 @@ RUN apk add --no-cache \
     musl-dev \
     linux-headers \
     bash \
-    genext2fs \
     curl \
     tar \
     openssl-dev \
@@ -68,13 +81,8 @@ RUN rm -rf generated flags.* || true && make oldconfig || true
 # build with clang and lld
 RUN make V=1 CC=clang CFLAGS="-O2 -fPIC -fno-common" AR=llvm-ar LINUX="${LINUX}" LDFLAGS="${LDFLAGS}" toybox root && \
     mkdir -p /output/usr/bin /output/etc /output/lib && \
-    make install PREFIX=/usr DESTDIR=/output
-
-RUN mv /opt/toybox/root/host/fs /output && \
-    ls -lap /output/fs/usr && \
-    ls -lap /output/fs/usr/bin && \
-    find / -iname "toybox" -type f && \
-    find /output/fs -iname "sh" -type f ;
+    make install PREFIX=/usr DESTDIR=/output && \
+    mv /opt/toybox/root/host/fs /output
 
 # Minimal etc
 RUN printf "root:x:0:0:root:/root:/bin/sh\n" > /output/fs/etc/passwd && \
@@ -91,4 +99,4 @@ COPY --from=builder /output/fs/usr/bin/toybox /bin/toybox
 
 # Set the entry point to Toybox
 ENTRYPOINT ["/usr/bin/toybox"]
-CMD ["sh"]
+CMD ["/usr/bin/bash"]
