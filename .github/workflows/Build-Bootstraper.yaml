@@ -42,6 +42,18 @@ jobs:
           fetch-depth: 0
           submodules: false
 
+      - name: Prepare
+        run: |
+          platform=linux/${{ matrix.architecture }}
+          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@c1e51972afc2121e065aed6d45c65596fe445f3f # v5.8.0
+        with:
+          context: git
+          images: ghcr.io/reactive-firewall/mitl-bootstrap
+
       - name: Set up QEMU for multi-architecture builds
         uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
 
@@ -59,32 +71,90 @@ jobs:
           password: ${{ secrets.CR_PAT }}
           logout: true
 
-      - name: Cache Docker layers
-        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-${{ matrix.architecture }}-buildx-${{ github.run_id }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.architecture }}-buildx-
-
       - name: Build and push Docker image
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           context: .
           file: dockerfile
-          push: true
-          # create an arch-specific tag so each matrix produces its own image/artifacts
-          tags: ghcr.io/reactive-firewall/mitl-bootstrap:${{ github.run_id }}-${{ matrix.architecture }}
+          labels: ${{ steps.meta.outputs.labels }}
+          tags: ghcr.io/reactive-firewall/mitl-bootstrap
           platforms: linux/${{ matrix.architecture }}
           build-args: |
             TOYBOX_VERSION=0.8.12
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p ${{ runner.temp }}/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    runs-on: ubuntu-latest
+    needs:
+      - build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          submodules: false
+
+      - name: Download digests
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.CR_PAT }}
+          logout: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@c1e51972afc2121e065aed6d45c65596fe445f3f # v5.8.0
+        with:
+          context: git
+          images: ghcr.io/reactive-firewall/mitl-bootstrap
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Create manifest list and push
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf 'ghcr.io/reactive-firewall/mitl-bootstrap@sha256:%s ' *)
+
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect ghcr.io/reactive-firewall/mitl-bootstrap:${{ steps.meta.outputs.version }}
 
       - name: Ensure image is pullable locally
         run: |
           # ensure the platform-specific image manifest is present locally for Syft/Grype
-          docker pull ghcr.io/reactive-firewall/mitl-bootstrap:${{ github.run_id }}-${{ matrix.architecture }}
+          docker pull ghcr.io/reactive-firewall/mitl-bootstrap:${{ steps.meta.outputs.version }}
 
       - name: Pull Syft and Grype images
         run: |
@@ -94,30 +164,30 @@ jobs:
 
       - name: Generate SBOM (Syft) for this architecture
         env:
-          IMAGE: ghcr.io/reactive-firewall/mitl-bootstrap:${{ github.run_id }}-${{ matrix.architecture }}
+          IMAGE: ghcr.io/reactive-firewall/mitl-bootstrap:${{ steps.meta.outputs.version }}
         run: |
           SYFT_IMG=anchore/syft:v1.31.0  # adjust version if desired
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
-            $SYFT_IMG ${IMAGE} -o spdx-json > sbom-${{ matrix.architecture }}.json
+            $SYFT_IMG ${IMAGE} -o spdx-json > sbom.json
 
       - name: Scan image with Grype (vulnerability) and export results
         env:
-          IMAGE: ghcr.io/reactive-firewall/mitl-bootstrap:${{ github.run_id }}-${{ matrix.architecture }}
+          IMAGE: ghcr.io/reactive-firewall/mitl-bootstrap:${{ steps.meta.outputs.version }}
         run: |
           GRYPE_IMG=anchore/grype:v0.98.0
           # run grype against the image and produce JSON output
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
-            $GRYPE_IMG ${IMAGE} -o json > grype-${{ matrix.architecture }}.json || true
+            $GRYPE_IMG ${IMAGE} -o json > grype.json || true
           # (grype exits non-zero on findings; keep the job green by allowing non-zero)
 
       - name: Upload per-arch SBOM and Grype report
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: sbom-and-scan-${{ matrix.architecture }}
+          name: sbom-and-scan
           path: |
-            sbom-${{ matrix.architecture }}.json
+            sbom.json
 
       - name: Logout from Docker Hub
         run: docker logout
