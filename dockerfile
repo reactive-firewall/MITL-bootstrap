@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-ARG MITL_TOYBOX_VERSION=${MITL_TOYBOX_VERSION:-${TOYBOX_VERSION:-"0.8.12"}}
+ARG TOYBOX_VERSION=${TOYBOX_VERSION:-"0.8.12"}
 
 # version is passed through by Docker.
 # shellcheck disable=SC2154
@@ -8,7 +8,7 @@ ARG MITL_TOYBOX_VERSION=${MITL_TOYBOX_VERSION:-${TOYBOX_VERSION:-"0.8.12"}}
 FROM --platform="linux/${TARGETARCH}" alpine:latest AS builder
 
 # Set environment variables
-ENV TOYBOX_VERSION=${MITL_TOYBOX_VERSION:-"0.8.12"}
+ENV TOYBOX_VERSION=${TOYBOX_VERSION:-"0.8.12"}
 ENV PATH="/usr/local/bin:$PATH"
 ENV CC=clang
 ENV CXX=clang++
