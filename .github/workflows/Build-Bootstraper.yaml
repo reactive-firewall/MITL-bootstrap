@@ -85,10 +85,12 @@ jobs:
             TARGETARCH=${{ matrix.architecture }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
-          attests: true
+          attests: |
+            type=sbom
+            type=provenance
           sbom: true
           provenance: true
-          outputs: type=image,push-by-digest=true,name-canonical=true,push=true,annotation-index.org.opencontainers.image.description=My multi-arch image
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true,annotation-index.org.opencontainers.image.description="My multi-arch image"
 
       - name: Export digest
         run: |
