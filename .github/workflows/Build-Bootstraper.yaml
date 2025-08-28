@@ -240,12 +240,15 @@ jobs:
         id: run_container
         run: |
           docker run --name test-container ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }} /bin/bash -c "toybox bash -c 'echo Toybox shell is working'"
+      - name: Check for Toybox bash version
+        run: |
+          docker exec test-container toybox bash --version || exit 1
       - name: Check for Toybox shell
         run: |
           docker exec test-container toybox bash -c "echo 'Toybox shell is working'" || exit 1
       - name: Check for Toybox printf
         run: |
-          docker exec test-container toybox bash -c "printf '%s\n' 'Toybox shell is working'" || exit 1
+          docker exec test-container toybox bash -c "printf '%s\n' 'Toybox printf is working'" || exit 1
       - name: Check for gcc command
         run: |
           if docker exec test-container which gcc; then

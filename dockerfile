@@ -117,9 +117,6 @@ COPY --from=builder /output/fs /
 # Ensure toybox is reachable at /bin/toybox (symlink if needed)
 COPY --from=builder /output/fs/usr/bin/toybox /bin/toybox
 
-# Create a symbolic link from /bin/bash to /usr/bin/toybox
-RUN ln -s /usr/bin/toybox /bin/bash
-
 SHELL [ "/bin/bash", "--norc", "-l", "-c" ]
 
 # Set the entry point to Toybox
