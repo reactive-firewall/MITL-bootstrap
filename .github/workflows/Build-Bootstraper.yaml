@@ -1,7 +1,6 @@
 ---
 name: Build and Push Docker Image
 run-name: Build ${{ github.ref_name }}
-author: '@reactive-firewall-org/mitl-maintainers'
 #
 # "Continuous Integration workflow for building, the project."
 #
@@ -115,6 +114,8 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - build
+    outputs:
+      merge_version: ${{ steps.meta.outputs.version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -201,5 +202,66 @@ jobs:
           path: |
             sbom.json
 
+      - name: Logout from Docker Hub
+        run: docker logout
+
+  test:
+    permissions:
+      actions: read
+      contents: read
+      statuses: write
+      packages: read
+      pull-requests: read
+      security-events: none
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          submodules: false
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.CR_PAT }}
+          logout: true
+      - name: Pull local copy
+        run: |
+          docker pull ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }}
+      - name: Run Docker container
+        id: run_container
+        run: |
+          docker run --name test-container ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }} /bin/bash -c "toybox bash -c 'echo Toybox shell is working'"
+      - name: Check for Toybox shell
+        run: |
+          docker exec test-container toybox bash -c "echo 'Toybox shell is working'" || exit 1
+      - name: Check for Toybox printf
+        run: |
+          docker exec test-container toybox bash -c "printf '%s\n' 'Toybox shell is working'" || exit 1
+      - name: Check for gcc command
+        run: |
+          if docker exec test-container which gcc; then
+            echo "gcc command is present in the image."
+            exit 1
+          else
+            echo "gcc command is not present in the image."
+          fi
+      - name: Check for g++ command
+        run: |
+          if docker exec test-container which g++; then
+            echo "g++ command is present in the image."
+            exit 1
+          else
+            echo "g++ command is not present in the image."
+          fi
+      - name: Clean up
+        run: |
+          docker rm -f test-container
       - name: Logout from Docker Hub
         run: docker logout
