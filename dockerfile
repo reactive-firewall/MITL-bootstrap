@@ -89,7 +89,7 @@ RUN if [ -f .config ]; then \
 RUN rm -rf generated flags.* || true && make oldconfig || true
 
 # build with clang and lld
-RUN make V=1 CC=clang CFLAGS="-fno-math-errno -fcse-follow-jumps -funroll-loops -fvariable-expansion-in-unroller -fstrict-aliasing -fPIC -fno-common" AR=llvm-ar LINUX="${LINUX}" LDFLAGS="${LDFLAGS}" toybox root && \
+RUN make V=1 CC=clang CFLAGS="-fno-math-errno -fstrict-aliasing -fPIC -fno-common" AR=llvm-ar LINUX="${LINUX}" LDFLAGS="${LDFLAGS}" toybox root && \
     mkdir -p /output/usr/bin /output/etc /output/lib && \
     make install PREFIX=/usr DESTDIR=/output && \
     mv /opt/toybox/root/host/fs /output
