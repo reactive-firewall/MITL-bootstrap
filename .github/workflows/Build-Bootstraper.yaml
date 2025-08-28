@@ -247,7 +247,7 @@ jobs:
           docker run --name test-container ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }} /bin/bash -c "toybox bash -c 'echo Toybox shell is working'"
       - name: Check for Toybox bash version
         run: |
-          docker run --name test-container ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }} /bin/bash --version"
+          docker run --name test-container ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }} /bin/bash --version
           docker run --name test-container ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }} /bin/bash -c "toybox bash --version"
       - name: Check for Toybox shell
         run: |
