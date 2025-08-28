@@ -1,6 +1,7 @@
 ---
 name: Build and Push Docker Image
 run-name: Build ${{ github.ref_name }}
+author: '@reactive-firewall-org/mitl-maintainers'
 #
 # "Continuous Integration workflow for building, the project."
 #

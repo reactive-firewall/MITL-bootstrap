@@ -1,8 +1,14 @@
-# Use Alpine as the base image for the build environment
-FROM alpine:latest AS builder
+# syntax=docker/dockerfile:1
+ARG MITL_TOYBOX_VERSION=${MITL_TOYBOX_VERSION:-${TOYBOX_VERSION:-"0.8.12"}}
+
+# version is passed through by Docker.
+# shellcheck disable=SC2154
+# Use MIT licensed Alpine as the base image for the build environment
+# shellcheck disable=SC2154
+FROM --platform="linux/${TARGETARCH}" alpine:latest AS builder
 
 # Set environment variables
-ENV TOYBOX_VERSION=0.8.12
+ENV TOYBOX_VERSION=${MITL_TOYBOX_VERSION:-"0.8.12"}
 ENV PATH="/usr/local/bin:$PATH"
 ENV CC=clang
 ENV CXX=clang++
@@ -27,7 +33,9 @@ ENV LINUX=/usr/include/linux
 # openssl-dev - Apache-2.0
 # zlib-dev - zlib license
 
-RUN apk add --no-cache \
+RUN --mount=type=cache,target=/var/cache/apk,sharing=locked --network=default \
+  apk update && \
+  apk add \
     llvm \
     clang \
     build-base \
@@ -54,6 +62,8 @@ RUN mkdir -p /opt && \
 
 WORKDIR /opt/toybox
 
+SHELL [ "/bin/sh", "-c" ]
+
 # Copy the Toybox configuration file
 COPY toybox_dot_config .config
 
@@ -79,7 +89,7 @@ RUN if [ -f .config ]; then \
 RUN rm -rf generated flags.* || true && make oldconfig || true
 
 # build with clang and lld
-RUN make V=1 CC=clang CFLAGS="-O2 -fPIC -fno-common" AR=llvm-ar LINUX="${LINUX}" LDFLAGS="${LDFLAGS}" toybox root && \
+RUN make V=1 CC=clang CFLAGS="-fno-math-errno -fcse-follow-jumps -funroll-loops -fvariable-expansion-in-unroller -fstrict-aliasing -fPIC -fno-common" AR=llvm-ar LINUX="${LINUX}" LDFLAGS="${LDFLAGS}" toybox root && \
     mkdir -p /output/usr/bin /output/etc /output/lib && \
     make install PREFIX=/usr DESTDIR=/output && \
     mv /opt/toybox/root/host/fs /output
@@ -89,7 +99,17 @@ RUN printf "root:x:0:0:root:/root:/bin/sh\n" > /output/fs/etc/passwd && \
     printf "/dev/sda / ext4 defaults 0 1\n" > /output/fs/etc/fstab
 
 # Stage 2: Create the final image
-FROM scratch AS mitl-bootstrap
+# shellcheck disable=SC2154
+FROM --platform="linux/${TARGETARCH}" scratch AS mitl-bootstrap
+
+# set inherited values
+LABEL version="0.5"
+LABEL org.opencontainers.image.title="MITL-bootstrap"
+LABEL org.opencontainers.image.description="Custom MITL image with toybox installed."
+LABEL org.opencontainers.image.vendor="individual"
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.authors="mitl-maintainers@users.noreply.github.com"
+LABEL maintainer="mitl-maintainers@users.noreply.github.com"
 
 # Copy built files
 COPY --from=builder /output/fs /
@@ -97,6 +117,13 @@ COPY --from=builder /output/fs /
 # Ensure toybox is reachable at /bin/toybox (symlink if needed)
 COPY --from=builder /output/fs/usr/bin/toybox /bin/toybox
 
+# Create a symbolic link from /bin/bash to /usr/bin/toybox
+RUN ln -s /usr/bin/toybox /bin/bash
+
+SHELL [ "/bin/bash", "--norc", "-l", "-c" ]
+
 # Set the entry point to Toybox
 ENTRYPOINT ["/usr/bin/toybox"]
-CMD ["/usr/bin/bash"]
+ENV BASH='/bin/bash'
+ENV HOSTNAME="base-builder"
+CMD [ "/bin/bash", "--norc", "-l", "-c", "'exec -a bash /bin/bash -il'" ]
