@@ -81,7 +81,8 @@ jobs:
           tags: ghcr.io/reactive-firewall/mitl-bootstrap
           platforms: linux/${{ matrix.architecture }}
           build-args: |
-            TOYBOX_VERSION=0.8.12
+            TARGETARCH=${{ matrix.architecture }}
+            MITL_TOYBOX_VERSION=0.8.12
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
@@ -213,6 +214,7 @@ jobs:
       packages: read
       pull-requests: read
       security-events: none
+    needs: merge
     runs-on: ubuntu-latest
     defaults:
       run:
