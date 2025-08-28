@@ -90,7 +90,7 @@ jobs:
             type=provenance
           sbom: true
           provenance: true
-          outputs: type=image,push-by-digest=true,name-canonical=true,push=true,annotation-index.org.opencontainers.image.description="My multi-arch image"
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true,annotation-index.org.opencontainers.image.description=My multi-arch image,
 
       - name: Export digest
         run: |
