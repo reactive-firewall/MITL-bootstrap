@@ -85,7 +85,10 @@ jobs:
             TARGETARCH=${{ matrix.architecture }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
-          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+          attests: true
+          sbom: true
+          provenance: true
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true,annotation-index.org.opencontainers.image.description=My multi-arch image
 
       - name: Export digest
         run: |
@@ -242,16 +245,17 @@ jobs:
           docker run --name test-container ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }} /bin/bash -c "toybox bash -c 'echo Toybox shell is working'"
       - name: Check for Toybox bash version
         run: |
-          docker exec test-container toybox bash --version || exit 1
+          docker run --name test-container ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }} /bin/bash --version"
+          docker run --name test-container ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }} /bin/bash -c "toybox bash --version"
       - name: Check for Toybox shell
         run: |
-          docker exec test-container toybox bash -c "echo 'Toybox shell is working'" || exit 1
+          docker run --name test-container ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }} /bin/bash -c "echo 'Toybox shell is working'" || exit 1
       - name: Check for Toybox printf
         run: |
-          docker exec test-container toybox bash -c "printf '%s\n' 'Toybox printf is working'" || exit 1
+          docker run --name test-container ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }} /bin/bash -c "printf '%s\n' 'Toybox printf is working'" || exit 1
       - name: Check for gcc command
         run: |
-          if docker exec test-container which gcc; then
+          if docker run --name test-container ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }} /bin/bash -c "which gcc"; then
             echo "gcc command is present in the image."
             exit 1
           else
@@ -259,7 +263,7 @@ jobs:
           fi
       - name: Check for g++ command
         run: |
-          if docker exec test-container which g++; then
+          if docker run --name test-container ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }} /bin/bash -c "which g++"; then
             echo "g++ command is present in the image."
             exit 1
           else
