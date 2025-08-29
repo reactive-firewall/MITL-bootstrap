@@ -21,6 +21,31 @@ on:  # yamllint disable-line rule:truthy
 permissions: {}
 
 jobs:
+  seed:
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    runs-on: ubuntu-latest
+    outputs:
+      timestamp: ${{ steps.output_time.outputs.bootstrap-timestamp }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          submodules: false
+      - id: output_time
+        name: Get Git commit timestamps
+        shell: bash
+        run: |
+          printf "%s\n" "::group::bootstrap-MITL-env"
+          printf "bootstrap-timestamp=%s\n" $(git log -1 --pretty=%ct) >> "$GITHUB_OUTPUT"
+          printf "TIMESTAMP=%s\n" $(git log -1 --pretty=%ct) >> "$GITHUB_ENV"
+          printf "%s %s\n" "MITL-Bootstrap will be synced at time of:" $(git log -1 --pretty=%ct)
+          printf "%s\n" "::endgroup::"
+
   build:
     permissions:
       actions: read
@@ -30,6 +55,7 @@ jobs:
       pull-requests: read
       security-events: none
     runs-on: ubuntu-latest
+    needs: seed
     strategy:
       matrix:
         architecture: [amd64, arm64, arm]
@@ -47,13 +73,6 @@ jobs:
           platform=linux/${{ matrix.architecture }}
           echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
 
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@c1e51972afc2121e065aed6d45c65596fe445f3f # v5.8.0
-        with:
-          context: git
-          images: ghcr.io/reactive-firewall/mitl-bootstrap
-
       - name: Set up QEMU for multi-architecture builds
         uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
 
@@ -62,6 +81,19 @@ jobs:
         with:
           platforms: linux/${{ matrix.architecture }}
           cleanup: true
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@c1e51972afc2121e065aed6d45c65596fe445f3f # v5.8.0
+        with:
+          context: git
+          images: ghcr.io/reactive-firewall/mitl-bootstrap
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
@@ -89,9 +121,16 @@ jobs:
             type=sbom
             type=provenance
           sbom: true
-          provenance: true
-          outputs: type=image,push-by-digest=true,name-canonical=true,push=true,annotation-index.org.opencontainers.image.description='multi-arch MITL Bootstrap image'
-
+          provenance: mode=max
+          push: true
+          annotation: |
+            index.org.opencontainers.image.title=MITL-bootstrap
+            index.org.opencontainers.image.authors=mitl-maintainers@users.noreply.github.com
+            index.org.opencontainers.image.description=Multi-arch MITL Bootstrap image
+            index.org.opencontainers.image.vendor=individual
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true,annotation-index.org.opencontainers.image.description=Multi-arch MITL Bootstrap image ${{ matrix.architecture }}
+        env:
+          SOURCE_DATE_EPOCH: ${{ needs.seed.outputs.timestamp }}
       - name: Export digest
         run: |
           mkdir -p ${{ runner.temp }}/digests
@@ -118,8 +157,7 @@ jobs:
       pull-requests: read
       security-events: none
     runs-on: ubuntu-latest
-    needs:
-      - build
+    needs: build
     outputs:
       merge_version: ${{ steps.meta.outputs.version }}
     steps:
@@ -137,6 +175,9 @@ jobs:
           pattern: digests-*
           merge-multiple: true
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
@@ -144,9 +185,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.CR_PAT }}
           logout: true
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
       - name: Docker meta
         id: meta
@@ -159,6 +197,7 @@ jobs:
             type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
 
       - name: Create manifest list and push
         working-directory: ${{ runner.temp }}/digests
@@ -238,11 +277,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.CR_PAT }}
           logout: true
-      - name: Pull local copy
+      - name: Pull local copy for test
         run: |
           docker pull ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }}
-      - name: Run Docker container
+      - name: Run Docker test container
         id: run_container
+        shell: bash
         run: |
           docker run -d --name test-container ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }} /bin/bash -c "while true; do sleep 30; done"
           docker exec test-container /bin/bash -c "toybox bash -c 'echo Toybox shell is working'" || exit 1
@@ -250,17 +290,32 @@ jobs:
           docker exec test-container /bin/bash -c "toybox bash --version"
           docker exec test-container /bin/bash -c "printf '%s\n' 'Toybox printf is working'" || exit 1
           if docker exec test-container /bin/bash -c "which gcc"; then
-            echo "gcc command is present in the image."
+            printf "%s\n" "gcc command is present in the image."
             exit 1
           else
-            echo "gcc command is not present in the image."
+            printf "%s\n" "gcc command is not present in the image."
           fi
           if docker exec test-container /bin/bash -c "which g++"; then
-            echo "g++ command is present in the image."
+            printf "%s\n" "g++ command is present in the image."
             exit 1
           else
-            echo "g++ command is not present in the image."
+            printf "%s\n" "g++ command is not present in the image."
           fi
+          for REQ_CMD in "bash" "cp" "grep" "make" "mkdir" "mv" "rm" "sed" ; do
+            if docker exec test-container /bin/bash -c "command -vp ${REQ_CMD}"; then
+              printf "%s\n" "${REQ_CMD:-unknown} command is present in the image." ;
+              printf "%s\n" "${REQ_CMD:-unknown} command is configured in the path." ;
+            else
+              if docker exec test-container /bin/bash -c "which ${REQ_CMD}"; then
+                printf "%s\n" "${REQ_CMD:-unknown} command is present in the image."
+                printf "%s\n" "${REQ_CMD:-unknown} command is not configured in the path."
+              else
+                printf "%s\n" "${REQ_CMD:-unknown} command is not present in the image."
+                exit 2 ;
+              fi ;
+              exit 1 ;
+            fi ;
+          done ;
       - name: Clean up
         run: |
           docker stop test-container || true ;
