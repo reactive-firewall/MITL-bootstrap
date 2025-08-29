@@ -245,27 +245,17 @@ jobs:
         id: run_container
         run: |
           docker run --name test-container ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }} /bin/bash -c "toybox bash -c 'echo Toybox shell is working'"
-      - name: Check for Toybox bash version
-        run: |
-          docker run --name test-container ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }} /bin/bash --version
-          docker run --name test-container ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }} /bin/bash -c "toybox bash --version"
-      - name: Check for Toybox shell
-        run: |
-          docker run --name test-container ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }} /bin/bash -c "echo 'Toybox shell is working'" || exit 1
-      - name: Check for Toybox printf
-        run: |
-          docker run --name test-container ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }} /bin/bash -c "printf '%s\n' 'Toybox printf is working'" || exit 1
-      - name: Check for gcc command
-        run: |
-          if docker run --name test-container ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }} /bin/bash -c "which gcc"; then
+          docker exec test-container /bin/bash --version
+          docker exec test-container /bin/bash -c "toybox bash --version"
+          docker exec test-container /bin/bash -c "echo 'Toybox shell is working'" || exit 1
+          docker exec test-container /bin/bash -c "printf '%s\n' 'Toybox printf is working'" || exit 1
+          if docker exec test-container /bin/bash -c "which gcc"; then
             echo "gcc command is present in the image."
             exit 1
           else
             echo "gcc command is not present in the image."
           fi
-      - name: Check for g++ command
-        run: |
-          if docker run --name test-container ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }} /bin/bash -c "which g++"; then
+          if docker exec test-container /bin/bash -c "which g++"; then
             echo "g++ command is present in the image."
             exit 1
           else
