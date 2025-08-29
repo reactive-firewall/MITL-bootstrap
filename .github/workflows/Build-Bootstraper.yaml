@@ -244,7 +244,7 @@ jobs:
       - name: Run Docker container
         id: run_container
         run: |
-          docker run --name test-container ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }} /bin/bash -c "while true; do sleep 30; done"
+          docker run -d --name test-container ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }} /bin/bash -c "while true; do sleep 30; done"
           docker exec test-container /bin/bash -c "toybox bash -c 'echo Toybox shell is working'" || exit 1
           docker exec test-container /bin/bash --version
           docker exec test-container /bin/bash -c "toybox bash --version"
