@@ -301,12 +301,12 @@ jobs:
           else
             printf "%s\n" "g++ command is not present in the image."
           fi
-          for REQ_CMD in "bash" "cp" "grep" "make" "mkdir" "mv" "rm" "sed" ; do
-            if docker exec test-container /bin/bash -c "command -vp ${REQ_CMD}"; then
+          for REQ_CMD in "bash" "basename" "cat" "chgrp" "chmod" "chown" "cp" "date" "dirname" "find" "grep" "head" "make" "mkdir" "mv" "rm" "sed" ; do
+            if docker exec test-container /bin/bash -c "which ${REQ_CMD}"; then
               printf "%s\n" "${REQ_CMD:-unknown} command is present in the image." ;
               printf "%s\n" "${REQ_CMD:-unknown} command is configured in the path." ;
             else
-              if docker exec test-container /bin/bash -c "which ${REQ_CMD}"; then
+              if docker exec test-container /bin/bash -c "find / -type f -iname ${REQ_CMD} 2>/dev/null"; then
                 printf "%s\n" "${REQ_CMD:-unknown} command is present in the image."
                 printf "%s\n" "${REQ_CMD:-unknown} command is not configured in the path."
               else
