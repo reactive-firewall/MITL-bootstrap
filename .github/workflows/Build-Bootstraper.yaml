@@ -93,7 +93,7 @@ jobs:
             type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=sha,prefix={{branch}}-
+            type=sha
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
@@ -131,6 +131,8 @@ jobs:
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true,annotation-index.org.opencontainers.image.description=Multi-arch MITL Bootstrap image ${{ matrix.architecture }}
         env:
           SOURCE_DATE_EPOCH: ${{ needs.seed.outputs.timestamp }}
+          TOYBOX_VERSION: "0.8.12"
+          TARGETARCH: ${{ matrix.architecture }}
       - name: Export digest
         run: |
           mkdir -p ${{ runner.temp }}/digests
@@ -197,10 +199,14 @@ jobs:
             type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=sha,prefix={{branch}}-
+            type=sha
+        env:
+          SOURCE_DATE_EPOCH: ${{ needs.seed.outputs.timestamp }}
 
       - name: Create manifest list and push
         working-directory: ${{ runner.temp }}/digests
+        env:
+          SOURCE_DATE_EPOCH: ${{ needs.seed.outputs.timestamp }}
         run: |
           docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             $(printf 'ghcr.io/reactive-firewall/mitl-bootstrap@sha256:%s ' *)
