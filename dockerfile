@@ -103,7 +103,7 @@ RUN printf "root:x:0:0:root:/root:/bin/sh\n" > /output/fs/etc/passwd && \
 FROM --platform="linux/${TARGETARCH}" scratch AS mitl-bootstrap
 
 # set inherited values
-LABEL version="0.5"
+LABEL version="0.6"
 LABEL org.opencontainers.image.title="MITL-bootstrap"
 LABEL org.opencontainers.image.description="Custom Bootstrap MITL image with toybox installed."
 LABEL org.opencontainers.image.vendor="individual"

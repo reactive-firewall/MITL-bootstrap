@@ -25,6 +25,7 @@ jobs:
     permissions:
       actions: read
       contents: read
+      packages: none
       pull-requests: read
     runs-on: ubuntu-latest
     outputs:
@@ -51,7 +52,7 @@ jobs:
       actions: read
       contents: read
       statuses: write
-      packages: read
+      packages: write
       pull-requests: read
       security-events: none
     runs-on: ubuntu-latest
@@ -100,7 +101,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.CR_PAT }}
+          password: ${{ github.token }}
           logout: true
 
       - name: Build and push Docker image
@@ -155,7 +156,7 @@ jobs:
       actions: read
       contents: read
       statuses: write
-      packages: read
+      packages: write
       pull-requests: read
       security-events: none
     runs-on: ubuntu-latest
@@ -185,7 +186,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.CR_PAT }}
+          password: ${{ github.token }}
           logout: true
 
       - name: Docker meta
@@ -281,7 +282,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.CR_PAT }}
+          password: ${{ github.token }}
           logout: true
       - name: Pull local copy for test
         run: |
@@ -291,6 +292,7 @@ jobs:
         shell: bash
         run: |
           docker run -d --name test-container ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }} /bin/bash -c "while true; do sleep 30; done"
+          printf "::group::%s\n" "Testing"
           docker exec test-container /bin/bash -c "toybox bash -c 'echo Toybox shell is working'" || exit 1
           docker exec test-container /bin/bash --version
           docker exec test-container /bin/bash -c "toybox bash --version"
@@ -322,6 +324,27 @@ jobs:
               exit 1 ;
             fi ;
           done ;
+          printf "::endgroup::\n\n::group::%s\n" "Filesystem-Audit"
+          for REQ_PATH in "/bin" "/usr/bin" "/sbin" "/usr/bin" "/usr/local/bin" "/usr/local/sbin" "/usr/libexec" "/etc" "/var" "/" ; do
+            if docker exec test-container /bin/bash -c "test -d ${REQ_PATH}"; then
+              printf "%s\n" "${REQ_PATH:-unknown} path is present in the image." ;
+              printf "%s\n" "${REQ_PATH:-unknown} path is a directory in the image." ;
+              printf "::group::%s\n" "Contents"
+              docker exec test-container /bin/bash -c "ls -la ${REQ_PATH}" ;
+              printf "::endgroup::\n"
+            else
+              if docker exec test-container /bin/bash -c "test -e ${REQ_PATH}"; then
+                printf "%s\n" "${REQ_PATH:-unknown} path is present in the image." ;
+              printf "%s\n" "${REQ_PATH:-unknown} path is not a directory in the image." ;
+              else
+                printf "%s\n" "${REQ_PATH:-unknown} path is not present in the image."
+                # TODO: abort on fail
+                # exit 2 ;
+              fi ;
+              # TODO: abort on fail
+            fi ;
+          done ;
+          printf "::endgroup::\n"
       - name: Clean up
         run: |
           docker stop test-container || true ;
