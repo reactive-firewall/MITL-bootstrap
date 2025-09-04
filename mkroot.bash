@@ -70,7 +70,7 @@ HOST_TOOLCHAIN_PATH=${HOST_TOOLCHAIN_PATH}
 
 # primitive stage0 make root script
 PREFIX_STUB=${HOST_TOOLCHAIN_PATH}${PREFIX:-/usr}
-BASH_CMD=$(command -vp bash)
+BASH_CMD=$(which bash)
 test -x "${BASH_CMD}" || exit 126 ;  # need host bash
 
 # Get the input path of this script as called
