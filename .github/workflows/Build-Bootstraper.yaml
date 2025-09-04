@@ -309,6 +309,12 @@ jobs:
           else
             printf "%s\n" "g++ command is not present in the image."
           fi
+          if docker exec test-container /bin/bash -c "which gunzip"; then
+            printf "%s\n" "gunzip command is present in the image."
+            exit 1
+          else
+            printf "%s\n" "gunzip command is not present in the image."
+          fi
           for REQ_CMD in "bash" "basename" "cat" "chgrp" "chmod" "chown" "cp" "date" "dirname" "find" "grep" "head" "mkdir" "mv" "rm" "sed" ; do
             if docker exec test-container /bin/bash -c "which ${REQ_CMD}"; then
               printf "%s\n" "${REQ_CMD:-unknown} command is present in the image." ;
@@ -324,27 +330,30 @@ jobs:
               exit 1 ;
             fi ;
           done ;
-          printf "::endgroup::\n\n::group::%s\n" "Filesystem-Audit"
+          printf "::endgroup::\n\n"
           for REQ_PATH in "/bin" "/usr/bin" "/sbin" "/usr/bin" "/usr/local/bin" "/usr/local/sbin" "/usr/libexec" "/etc" "/var" "/" ; do
+            printf "::group::%s\n" "${REQ_PATH}"
             if docker exec test-container /bin/bash -c "test -d ${REQ_PATH}"; then
               printf "%s\n" "${REQ_PATH:-unknown} path is present in the image." ;
               printf "%s\n" "${REQ_PATH:-unknown} path is a directory in the image." ;
+              printf "::endgroup::\n"
               printf "::group::%s\n" "Contents"
               docker exec test-container /bin/bash -c "ls -la ${REQ_PATH}" ;
               printf "::endgroup::\n"
             else
               if docker exec test-container /bin/bash -c "test -e ${REQ_PATH}"; then
                 printf "%s\n" "${REQ_PATH:-unknown} path is present in the image." ;
-              printf "%s\n" "${REQ_PATH:-unknown} path is not a directory in the image." ;
+                printf "%s\n" "${REQ_PATH:-unknown} path is not a directory in the image." ;
+                printf "::endgroup::\n"
               else
                 printf "%s\n" "${REQ_PATH:-unknown} path is not present in the image."
+                printf "::endgroup::\n"
                 # TODO: abort on fail
                 # exit 2 ;
               fi ;
               # TODO: abort on fail
             fi ;
           done ;
-          printf "::endgroup::\n"
       - name: Clean up
         run: |
           docker stop test-container || true ;
