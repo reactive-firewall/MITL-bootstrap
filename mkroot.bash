@@ -70,7 +70,7 @@ HOST_TOOLCHAIN_PATH=${HOST_TOOLCHAIN_PATH}
 
 # primitive stage0 make root script
 PREFIX_STUB=${HOST_TOOLCHAIN_PATH}${PREFIX:-/usr}
-BASH_CMD=${PREFIX_STUB}/bin/bash
+BASH_CMD=$(command -vp bash)
 test -x "${BASH_CMD}" || exit 126 ;  # need host bash
 
 # Get the input path of this script as called
@@ -140,4 +140,4 @@ for FILE in "bash" "basename" "cat" "chgrp" "chmod" "chown" "cp" "date" "dirname
 	fn_host_do_cmd ln -s "toybox" "${DESTDIR}/usr/bin/${FILE}" 2>/dev/null || true ;
 done ;
 
-fn_host_do_cmd sha256sum "${DESTDIR}/${FILE}" || true ;
+# fn_host_do_cmd sha256sum "${DESTDIR}/${FILE}" || true ;
