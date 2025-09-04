@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#! /bin/bash
 #
 # Disclaimer of Warranties.
 # A. YOU EXPRESSLY ACKNOWLEDGE AND AGREE THAT, TO THE EXTENT PERMITTED BY
