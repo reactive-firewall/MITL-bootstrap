@@ -86,7 +86,6 @@ if [ -d "$PATH_ARG" ] && [ ":$PATH:" != *":$PATH_ARG:"* ] ; then
 fi
 
 unset input_path ;
-unset PATH_ARG ;
 
 # bootstrap into host bash shell and run stuff:
 #	usage:
@@ -97,25 +96,25 @@ fn_host_do_cmd() {
 	cmd="$1"
 	shift
 	SUB_TOOL_RESULT=0
-	OLDUMASK=$(umask)
+	#OLDUMASK=$(umask)
 	ACTION=${ACTION:-"run"}
 	cd "$(pwd)" 2>/dev/null ; # initialize OLDPWD = PWD
 	# do the work
-	( "${BASH_CMD}" -c "./cmd-trebuchet.bash ${cmd} ${@}" ) || false ;
+	( "${BASH_CMD}" -c "${PATH_ARG}/cmd-trebuchet.bash ${cmd} ${@}" ) || false ;
 	SUB_TOOL_RESULT=$?
 	wait ;
 	# revert umask
-	umask "$OLDUMASK" ;
+	#umask "$OLDUMASK" ;
 	# return to start path
 	test $(pwd) -ef ${OLDPWD} || cd "${OLDPWD}" 2>/dev/null ;
 	# cleanup
-	unset OLDUMASK 2>/dev/null ;
+	#unset OLDUMASK 2>/dev/null ;
 	unset ACTION 2>/dev/null ;
 	# report back
 	return ${SUB_TOOL_RESULT:-126} ;
 }
 
-export -f fn_host_do_cmd ;
+#export -f fn_host_do_cmd ;
 
 for FILE in bin lib sbin tmp usr usr/bin usr/libexec usr/local usr/share var Users ; do
 	fn_host_do_cmd mkdir -p "${DESTDIR}/${FILE}" ;
@@ -143,3 +142,6 @@ for FILE in "bash" "basename" "cat" "chgrp" "chmod" "chown" "cp" "date" "dirname
 done ;
 
 # fn_host_do_cmd sha256sum "${DESTDIR}/${FILE}" || true ;
+
+unset PATH_ARG ;
+exit 0 ;
