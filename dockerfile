@@ -67,6 +67,15 @@ SHELL [ "/bin/sh", "-c" ]
 # Copy the Toybox configuration file
 COPY toybox_dot_config .config
 
+# Copy the pre-stage tools
+COPY cmd-scout.bash /usr/bin/cmd-scout.bash
+COPY cmd-trebuchet.bash /usr/bin/cmd-trebuchet.bash
+COPY mkroot.bash /usr/bin/mkroot.bash
+
+RUN chmod 555 /usr/bin/cmd-scout.bash && \
+    chmod 555 /usr/bin/cmd-trebuchet.bash && \
+    chmod 555 /usr/bin/mkroot.bash
+
 # Force-disable optional libraries/features that cause probe failures
 RUN if [ -f .config ]; then \
       sed -i \
@@ -80,6 +89,8 @@ RUN if [ -f .config ]; then \
       -e 's/^CONFIG_SELINUX=.*/CONFIG_SELINUX=n/' \
       -e 's/^CONFIG_TOYBOX_SELINUX=.*/CONFIG_TOYBOX_SELINUX=n/' \
       -e 's/^CONFIG_FEATURE_PING=.*/CONFIG_FEATURE_PING=n/' \
+      -e 's/^CONFIG_GZIP=.*/CONFIG_GZIP=n/' \
+      -e 's/^CONFIG_GUNZIP=.*/CONFIG_GUNZIP=n/' \
       -e 's/^CONFIG_PING=.*/CONFIG_PING=n/' \
       .config || true ; \
     else \
@@ -91,11 +102,16 @@ RUN rm -rf generated flags.* || true && make oldconfig || true
 # build with clang and lld
 RUN make V=1 CC=clang CFLAGS="-fno-math-errno -fstrict-aliasing -fPIC -fno-common" AR=llvm-ar LINUX="${LINUX}" LDFLAGS="${LDFLAGS}" toybox root && \
     mkdir -p /output/usr/bin /output/etc /output/lib && \
-    make install PREFIX=/usr DESTDIR=/output && \
-    mv /opt/toybox/root/host/fs /output
+    make install PREFIX=/usr DESTDIR=/output
+
+ENV HOST_TOOLCHAIN_PATH="/opt/toybox/root/host/fs"
+ENV PREFIX="/usr"
+RUN mkdir /output/fs
+ENV DESTDIR="/output/fs"
 
 # Minimal etc
-RUN printf "root:x:0:0:root:/root:/bin/sh\n" > /output/fs/etc/passwd && \
+RUN /usr/bin/mkroot.bash && \
+    printf "root:x:0:0:root:/root:/bin/sh\n" > /output/fs/etc/passwd && \
     printf "/dev/sda / ext4 defaults 0 1\n" > /output/fs/etc/fstab
 
 # Stage 2: Create the final image
@@ -103,7 +119,7 @@ RUN printf "root:x:0:0:root:/root:/bin/sh\n" > /output/fs/etc/passwd && \
 FROM --platform="linux/${TARGETARCH}" scratch AS mitl-bootstrap
 
 # set inherited values
-LABEL version="0.6"
+LABEL version="0.7"
 LABEL org.opencontainers.image.title="MITL-bootstrap"
 LABEL org.opencontainers.image.description="Custom Bootstrap MITL image with toybox installed."
 LABEL org.opencontainers.image.vendor="individual"
