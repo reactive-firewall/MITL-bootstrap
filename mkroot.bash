@@ -80,7 +80,7 @@ input_path="${input_path%/}"
 # Extract the directory name
 PATH_ARG="${input_path%/*}"
 
-if [[ -d "$PATH_ARG" ]] && [[ ":$PATH:" != *":$PATH_ARG:"* ]] ; then
+if [ -d "$PATH_ARG" ] && [ ":$PATH:" != *":$PATH_ARG:"* ] ; then
 	PATH="${PATH:+"$PATH:"}$PATH_ARG" ;
 	export PATH ;
 fi
@@ -92,14 +92,16 @@ unset PATH_ARG ;
 #	usage:
 #		$0 Cmd [args ...]
 #
-function fn_host_do_cmd() {
+fn_host_do_cmd() {
 	# setup
-	local SUB_TOOL_RESULT=0 ;
-	local OLDUMASK=$(umask) ;
-	local ACTION=${ACTION:-"run"}
-	cd $(pwd) 2>/dev/null ; # initialize OLDPWD = PWD
+	cmd="$1"
+	shift
+	SUB_TOOL_RESULT=0
+	OLDUMASK=$(umask)
+	ACTION=${ACTION:-"run"}
+	cd "$(pwd)" 2>/dev/null ; # initialize OLDPWD = PWD
 	# do the work
-	( ${BASH_CMD} -c "./cmd-trebuchet.bash ${@:1:$#}" ) || false ;
+	( "${BASH_CMD}" -c "./cmd-trebuchet.bash ${cmd} ${@}" ) || false ;
 	SUB_TOOL_RESULT=$?
 	wait ;
 	# revert umask

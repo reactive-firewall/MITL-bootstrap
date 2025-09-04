@@ -68,7 +68,7 @@ input_path="${input_path%/}"
 # Extract the directory name
 PATH_ARG="${input_path%/*}"
 
-if [[ -d "$PATH_ARG" ]] && [[ ":$PATH:" != *":$PATH_ARG:"* ]] ; then
+if [ -d "$PATH_ARG" ] && [ ":$PATH:" != *":$PATH_ARG:"* ] ; then
 	PATH="${PATH:+"$PATH:"}$PATH_ARG" ;
 	export PATH ;
 fi
