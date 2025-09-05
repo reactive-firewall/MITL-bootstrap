@@ -100,7 +100,7 @@ fn_host_do_cmd() {
 	ACTION=${ACTION:-"run"}
 	cd "$(pwd)" 2>/dev/null ; # initialize OLDPWD = PWD
 	# do the work
-	( "${BASH_CMD}" -c "${PATH_ARG}/cmd-trebuchet.bash ${cmd} ${@}" ) || false ;
+	( "${BASH_CMD}" -c "${PATH_ARG}/cmd-trebuchet.bash ${cmd} ${@:2}" ) || false ;
 	SUB_TOOL_RESULT=$?
 	wait ;
 	# revert umask

@@ -100,4 +100,4 @@ if [ $# -lt 1 ]; then
 fi
 
 # Call the builtin command function with the provided arguments
-builtin_command "$@"
+builtin_command "$1" "${@:2}"
