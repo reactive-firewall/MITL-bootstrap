@@ -81,13 +81,13 @@ unset PATH_ARG ;
 # Main function to mimic 'builtin command'
 builtin_command() {
 	cmd="$1"
-
+	shift ;
 	# Check if the command exists
 	if cmd-scout.bash "$cmd"; then
 		printf "%s\n" "Loading ${cmd}"
-		printf "%s\n" "  with: ${@:2}"
+		printf "%s\n" "  with: ${@}"
 		# Execute the command with the provided arguments
-		"$cmd" "${@:2}"
+		"$cmd" "${@}"
 	else
 		printf "%s\n" "$cmd not found"
 		return 1
@@ -100,5 +100,7 @@ if [ $# -lt 1 ]; then
 	exit 1
 fi
 
+target_cmd="${1}"
+shift ;
 # Call the builtin command function with the provided arguments
-builtin_command "$1" "${@:2}"
+builtin_command "$target_cmd" "${@}"
