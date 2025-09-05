@@ -99,8 +99,9 @@ fn_host_do_cmd() {
 	#OLDUMASK=$(umask)
 	ACTION=${ACTION:-"run"}
 	cd "$(pwd)" 2>/dev/null ; # initialize OLDPWD = PWD
+	COMMAND_TREBUCHET="${PATH_ARG}/cmd-trebuchet.bash"
 	# do the work
-	( "${BASH_CMD}" -c '"${PATH_ARG}/cmd-trebuchet.bash" "${cmd}" ${@}' ) || false ;
+	( "${BASH_CMD}" -c '"${COMMAND_TREBUCHET}" "${cmd}" ${@}' ) || false ;
 	SUB_TOOL_RESULT=$?
 	wait ;
 	# revert umask
@@ -110,6 +111,7 @@ fn_host_do_cmd() {
 	# cleanup
 	#unset OLDUMASK 2>/dev/null ;
 	unset ACTION 2>/dev/null ;
+	unset COMMAND_TREBUCHET 2>/dev/null ;
 	# report back
 	return ${SUB_TOOL_RESULT:-126} ;
 }
