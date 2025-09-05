@@ -133,7 +133,7 @@ done ;
 
 fn_host_do_cmd rm "${HOST_TOOLCHAIN_PATH}/etc/os-release" 2>/dev/null || true ;
 
-for FILE in dev etc init usr/lib mnt opt usr/libexec usr/local usr/share ; do
+for FILE in dev etc init usr/lib mnt ; do
 	fn_host_do_cmd mv "${HOST_TOOLCHAIN_PATH}/${FILE}" "${DESTDIR}/${FILE}" ;
 done ;
 
@@ -142,6 +142,9 @@ fn_host_do_cmd cp -vf "${HOST_TOOLCHAIN_PATH}/usr/bin/toybox" "${DESTDIR}/usr/bi
 for FILE in "bash" "basename" "cat" "chgrp" "chmod" "chown" "cp" "date" "dirname" "find" "grep" "head" "halt" "ls" "ln" "mkdir" "mv" "printf" "rm" "sed" ; do
 	fn_host_do_cmd ln -s "toybox" "${DESTDIR}/usr/bin/${FILE}" 2>/dev/null || true ;
 done ;
+
+fn_host_do_cmd ln -s "../usr/bin/toybox" "${DESTDIR}/bin/sh" 2>/dev/null || true ;
+fn_host_do_cmd ln -s "../usr/bin/toybox" "${DESTDIR}/bin/bash" 2>/dev/null || true ;
 
 # fn_host_do_cmd sha256sum "${DESTDIR}/${FILE}" || true ;
 
