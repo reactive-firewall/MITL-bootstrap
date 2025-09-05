@@ -94,7 +94,7 @@ builtin_command() {
 		if [ $# -gt 0 ]; then
 			printf '  with: ('
 			first=1
-			for a in "$@"; do
+			for a in ${@}; do
 				if [ $first -eq 1 ]; then
 					printf ' %s' "$a"
 					first=0
