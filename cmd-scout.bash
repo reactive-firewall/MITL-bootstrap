@@ -70,7 +70,7 @@ check_command_builtin() {
 
 # Function to check if a command exists using 'which'
 check_command_which() {
-    which "$1" >/dev/null 2>&1
+	which "$1" >/dev/null 2>&1
 }
 
 # export -f check_command_builtin

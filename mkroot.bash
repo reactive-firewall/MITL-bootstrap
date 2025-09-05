@@ -94,13 +94,13 @@ unset input_path ;
 fn_host_do_cmd() {
 	# setup
 	cmd="$1"
-	shift
+	shift 1
 	SUB_TOOL_RESULT=0
 	#OLDUMASK=$(umask)
 	ACTION=${ACTION:-"run"}
 	cd "$(pwd)" 2>/dev/null ; # initialize OLDPWD = PWD
 	# do the work
-	( "${BASH_CMD}" -c "${PATH_ARG}/cmd-trebuchet.bash ${cmd} ${@}" ) || false ;
+	( "${BASH_CMD}" -c '"${PATH_ARG}/cmd-trebuchet.bash" "${cmd}" ${@}' ) || false ;
 	SUB_TOOL_RESULT=$?
 	wait ;
 	# revert umask
