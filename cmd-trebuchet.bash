@@ -87,7 +87,7 @@ builtin_command() {
 	fi
 
 	# Check if the command exists (adjust invocation if cmd-scout needs bash)
-	if ./cmd-scout.bash "$cmd"; then
+	if cmd-scout.bash "$cmd"; then
 		printf '%s\n' "Loading ${cmd}"
 		# show remaining args
 		shift 1
