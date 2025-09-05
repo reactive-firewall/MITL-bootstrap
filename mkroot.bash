@@ -86,7 +86,7 @@ if [ -d "$PATH_ARG" ] && [ ":$PATH:" != *":$PATH_ARG:"* ] ; then
 fi
 
 unset input_path ;
-
+unset PATH_ARG ;
 # bootstrap into host bash shell and run stuff:
 #	usage:
 #		$0 Cmd [args ...]
@@ -99,9 +99,8 @@ fn_host_do_cmd() {
 	#OLDUMASK=$(umask)
 	ACTION=${ACTION:-"run"}
 	cd "$(pwd)" 2>/dev/null ; # initialize OLDPWD = PWD
-	COMMAND_TREBUCHET="${PATH_ARG}/cmd-trebuchet.bash"
 	# do the work
-	( "${BASH_CMD}" -c '"${COMMAND_TREBUCHET}" "${cmd}" ${@}' ) || false ;
+	( "${BASH_CMD}" -c 'cmd-trebuchet.bash "${cmd}" ${@}' ) || false ;
 	SUB_TOOL_RESULT=$?
 	wait ;
 	# revert umask
@@ -111,7 +110,6 @@ fn_host_do_cmd() {
 	# cleanup
 	#unset OLDUMASK 2>/dev/null ;
 	unset ACTION 2>/dev/null ;
-	unset COMMAND_TREBUCHET 2>/dev/null ;
 	# report back
 	return ${SUB_TOOL_RESULT:-126} ;
 }
@@ -145,5 +143,4 @@ done ;
 
 # fn_host_do_cmd sha256sum "${DESTDIR}/${FILE}" || true ;
 
-unset PATH_ARG ;
 exit 0 ;
