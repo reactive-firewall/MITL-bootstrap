@@ -183,14 +183,14 @@ RUN /usr/bin/mkroot.bash && \
 # - crt*.o (for static linking if needed)
 # - headers
 COPY --from=musl-builder ${MUSL_PREFIX}/lib/ld-musl-*.so.* /output/fs/lib/
+COPY --from=musl-builder ${MUSL_PREFIX}/lib/crt*.o /output/fs/lib/
 COPY --from=musl-builder ${MUSL_PREFIX}/lib/libc.so* /output/fs/usr/lib/
-COPY --from=musl-builder ${MUSL_PREFIX}/lib/crt1.o ${MUSL_PREFIX}/lib/crti.o ${MUSL_PREFIX}/lib/crtn.o /output/fs/lib/ || true
 COPY --from=musl-builder ${MUSL_PREFIX}/include /output/fs/usr/include
 
 # Some systems expect /lib64 -> /lib for x86_64. Create symlink if appropriate.
 RUN set -eux; \
     if [ "$(uname -m)" = "x86_64" ]; then \
-      [ -d /output/fs/lib64 ] || ln -s /output/fs/lib /lib64; \
+      [ -d /output/fs/lib64 ] || ln -s /lib /output/fs/lib64; \
     fi
 
 # Ensure loader has canonical name (example: /lib/ld-musl-x86_64.so.1)
