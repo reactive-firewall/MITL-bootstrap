@@ -30,6 +30,11 @@ RUN set -eux \
     && mkdir -p /build
 
 WORKDIR /build
+ENV export CC=clang
+ENV export AR=llvm-ar
+ENV export RANLIB=llvm-ranlib
+ENV export LD=ld.lld
+ENV LDFLAGS="-fuse-ld=lld"
 
 # Download musl
 RUN set -eux \
@@ -40,20 +45,13 @@ RUN set -eux \
 WORKDIR /build/musl
 
 # Configure, build, and install musl with shared enabled (default) using LLVM tools
-RUN set -eux \
-    && export CC=clang \
-    && export AR=llvm-ar \
-    && export RANLIB=llvm-ranlib \
-    && export LD=ld.lld \
-    && export LDFLAGS="-fuse-ld=lld" \
-    && mkdir -p ${MUSL_PREFIX} \
-    && ./configure --prefix=${MUSL_PREFIX} \
-    && make -j"$(nproc)" \
-    && make install
+RUN mkdir -p ${MUSL_PREFIX} && \
+    ./configure --prefix=${MUSL_PREFIX} && \
+    make -j"$(nproc)" && \
+    make install
 
 # Ensure we have the dynamic loader and libs present (example paths)
-RUN set -eux \
-    && ls -l ${MUSL_PREFIX}/lib || true \
+RUN ls -l ${MUSL_PREFIX}/lib || true \
     && file ${MUSL_PREFIX}/lib/* || true
 
 # Strip unneeded symbols from shared objects to save space (optional)
@@ -63,6 +61,7 @@ RUN set -eux \
        else \
          find ${MUSL_PREFIX}/lib -type f -name "*.so*" -exec strip --strip-unneeded {} + || true; \
        fi
+
 
 # Stage 2: Build toybox based filesystem
 # Use MIT licensed Alpine as the base image for the build environment
