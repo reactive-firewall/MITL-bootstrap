@@ -3,7 +3,7 @@ ARG TOYBOX_VERSION=${TOYBOX_VERSION:-"0.8.12"}
 
 # version is passed through by Docker.
 # shellcheck disable=SC2154
-ARG MUSL_VER=${MUSL_VER:-"1.2.6"}
+ARG MUSL_VER=${MUSL_VER:-"1.2.5"}
 ARG MUSL_PREFIX=/usr/local/musl-llvm-staging
 
 # Stage 1: Build Musl
@@ -11,7 +11,7 @@ ARG MUSL_PREFIX=/usr/local/musl-llvm-staging
 # shellcheck disable=SC2154
 FROM --platform="linux/${TARGETARCH}" alpine:latest AS musl-builder
 
-ENV MUSL_VER=${MUSL_VER:-"1.2.6"}
+ENV MUSL_VER=${MUSL_VER:-"1.2.5"}
 ENV MUSL_PREFIX=${MUSL_PREFIX}
 
 RUN set -eux \
@@ -79,7 +79,7 @@ ENV RANLIB=llvm-ranlib
 ENV LDFLAGS="-fuse-ld=lld"
 ENV BSD=/usr/include/bsd
 ENV LINUX=/usr/include/linux
-ENV MUSL_VER=${MUSL_VER:-"1.2.6"}
+ENV MUSL_VER=${MUSL_VER:-"1.2.5"}
 ENV MUSL_PREFIX=${MUSL_PREFIX}
 
 # Install necessary packages

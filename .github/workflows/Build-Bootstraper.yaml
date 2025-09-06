@@ -116,7 +116,7 @@ jobs:
           build-args: |
             TOYBOX_VERSION=0.8.12
             TARGETARCH=${{ matrix.architecture }}
-            MUSL_VER=1.2.6
+            MUSL_VER=1.2.5
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
           attests: |
@@ -134,7 +134,7 @@ jobs:
         env:
           SOURCE_DATE_EPOCH: ${{ needs.seed.outputs.timestamp }}
           TOYBOX_VERSION: "0.8.12"
-          MUSL_VER: "1.2.6"
+          MUSL_VER: "1.2.5"
           TARGETARCH: ${{ matrix.architecture }}
       - name: Export digest
         run: |
