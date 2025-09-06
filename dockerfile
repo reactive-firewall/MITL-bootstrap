@@ -12,7 +12,7 @@ ARG MUSL_PREFIX=/usr/local/musl-llvm-staging
 FROM --platform="linux/${TARGETARCH}" alpine:latest AS musl-builder
 
 ENV MUSL_VER=${MUSL_VER:-"1.2.5"}
-ENV MUSL_PREFIX=${MUSL_PREFIX}
+ENV MUSL_PREFIX=${MUSL_PREFIX:-"/usr/local/musl-llvm-staging"}
 
 RUN set -eux \
     && apk add --no-cache \
@@ -79,7 +79,7 @@ ENV LDFLAGS="-fuse-ld=lld"
 ENV BSD=/usr/include/bsd
 ENV LINUX=/usr/include/linux
 ENV MUSL_VER=${MUSL_VER:-"1.2.5"}
-ENV MUSL_PREFIX=${MUSL_PREFIX}
+ENV MUSL_PREFIX=${MUSL_PREFIX:-"/usr/local/musl-llvm-staging"}
 
 # Install necessary packages
 # llvm - LLVM-apache-2
