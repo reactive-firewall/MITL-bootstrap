@@ -118,7 +118,7 @@ fn_host_do_cmd() {
 
 #export -f fn_host_do_cmd ;
 
-for FILE in bin lib sbin tmp usr usr/bin usr/libexec usr/local usr/share var Users ; do
+for FILE in bin lib sbin tmp usr usr/bin usr/libexec usr/local usr/share usr/include var Users ; do
 	fn_host_do_cmd mkdir -p "${DESTDIR}/${FILE}" ;
 	fn_host_do_cmd chmod 755 "${DESTDIR}/${FILE}" || true ;
 done ;
