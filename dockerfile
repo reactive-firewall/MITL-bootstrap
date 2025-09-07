@@ -36,6 +36,7 @@ ENV AR=llvm-ar
 ENV RANLIB=llvm-ranlib
 ENV LD=ld.lld
 ENV LDFLAGS="-fuse-ld=lld"
+ENV MITL_DATE_EPOCH=${MITL_DATE_EPOCH}
 
 # Download musl
 RUN set -eux \
@@ -63,6 +64,9 @@ RUN set -eux \
          find ${MUSL_PREFIX}/lib -type f -name "*.so*" -exec strip --strip-unneeded {} + || true; \
        fi
 
+RUN touch -d ${MITL_DATE_EPOCH} ${MUSL_PREFIX}/lib/* || true \
+    && touch -d ${MITL_DATE_EPOCH} ${MUSL_PREFIX}/include/* || true
+
 
 # Stage 2: Build toybox based filesystem
 # Use MIT licensed Alpine as the base image for the build environment
@@ -70,6 +74,7 @@ RUN set -eux \
 FROM --platform="linux/${TARGETARCH}" alpine:latest AS builder
 
 # Set environment variables
+ENV MITL_DATE_EPOCH=${MITL_DATE_EPOCH}
 ENV TOYBOX_VERSION=${TOYBOX_VERSION:-"0.8.12"}
 ENV PATH="/usr/local/bin:$PATH"
 ENV CC=clang
@@ -176,7 +181,8 @@ ENV DESTDIR="/output/fs"
 # Minimal etc
 RUN /usr/bin/mkroot.bash && \
     printf "root:x:0:0:root:/root:/bin/sh\n" > /output/fs/etc/passwd && \
-    printf "/dev/sda / ext4 defaults 0 1\n" > /output/fs/etc/fstab
+    printf "/dev/sda / ext4 defaults 0 1\n" > /output/fs/etc/fstab && \
+    touch -d ${MITL_DATE_EPOCH} /output/fs/etc/* || true;
 
 # Copy musl runtime artifacts from builder:
 # - dynamic loader (ld-musl-*.so.1)
@@ -187,6 +193,10 @@ COPY --from=musl-builder ${MUSL_PREFIX}/lib/ld-musl-*.so.* /output/fs/lib/
 COPY --from=musl-builder ${MUSL_PREFIX}/lib/crt*.o /output/fs/lib/
 COPY --from=musl-builder ${MUSL_PREFIX}/lib/libc.so* /output/fs/usr/lib/
 COPY --from=musl-builder ${MUSL_PREFIX}/include /output/fs/usr/include
+
+RUN touch -d ${MITL_DATE_EPOCH} /output/fs/* || true \
+    && touch -d ${MITL_DATE_EPOCH} /output/fs/usr/include/* || true \
+    && touch -d ${MITL_DATE_EPOCH} /output/fs/usr/lib/* || true
 
 # Some systems expect /lib64 -> /lib for x86_64. Create symlink if appropriate.
 RUN set -eux; \

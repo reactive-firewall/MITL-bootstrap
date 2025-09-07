@@ -68,8 +68,11 @@ HOST_TOOLCHAIN_PATH=${HOST_TOOLCHAIN_PATH}
 # MacOS/Darwin host might be different like:
 # HOST_TOOLCHAIN_PATH=$(xcode-select --print-path)
 
+# allow reproducable builds based on EPOCH
+
+MITL_DATE_EPOCH=${MITL_DATE_EPOCH}
+
 # primitive stage0 make root script
-PREFIX_STUB=${HOST_TOOLCHAIN_PATH}${PREFIX:-/usr}
 BASH_CMD=$(which bash)
 test -x "${BASH_CMD}" || exit 126 ;  # need host bash
 
@@ -121,6 +124,8 @@ fn_host_do_cmd() {
 for FILE in bin lib sbin tmp usr usr/bin usr/libexec usr/local usr/share usr/include var Users ; do
 	fn_host_do_cmd mkdir -p "${DESTDIR}/${FILE}" ;
 	fn_host_do_cmd chmod 755 "${DESTDIR}/${FILE}" || true ;
+	fn_host_do_cmd touch -d ${MITL_DATE_EPOCH} "${DESTDIR}/${FILE}" || true ;
+	fn_host_do_cmd touch -mad ${MITL_DATE_EPOCH} "${DESTDIR}/${FILE}" 2>/dev/null || true ;
 done ;
 
 # basic sym-links
@@ -135,9 +140,13 @@ fn_host_do_cmd rm "${HOST_TOOLCHAIN_PATH}/etc/os-release" 2>/dev/null || true ;
 
 for FILE in dev etc init usr/lib mnt ; do
 	fn_host_do_cmd mv "${HOST_TOOLCHAIN_PATH}/${FILE}" "${DESTDIR}/${FILE}" ;
+	fn_host_do_cmd touch -d ${MITL_DATE_EPOCH} "${DESTDIR}/${FILE}" || true ;
+	fn_host_do_cmd touch -mad ${MITL_DATE_EPOCH} "${DESTDIR}/${FILE}" 2>/dev/null || true ;
 done ;
 
-fn_host_do_cmd cp -vf "${HOST_TOOLCHAIN_PATH}/usr/bin/toybox" "${DESTDIR}/usr/bin/toybox" 2>/dev/null || true ;
+fn_host_do_cmd cp -f "${HOST_TOOLCHAIN_PATH}/usr/bin/toybox" "${DESTDIR}/usr/bin/toybox" 2>/dev/null || true ;
+fn_host_do_cmd touch -d ${MITL_DATE_EPOCH} "${DESTDIR}/usr/bin/toybox" || true ;
+fn_host_do_cmd touch -mad ${MITL_DATE_EPOCH} "${DESTDIR}/usr/bin/toybox" 2>/dev/null || true ;
 
 for FILE in "bash" "basename" "cat" "chgrp" "chmod" "chown" "cp" "date" "dirname" "find" "grep" "head" "halt" "ls" "ln" "mkdir" "mv" "printf" "rm" "sed" ; do
 	fn_host_do_cmd ln -s "toybox" "${DESTDIR}/usr/bin/${FILE}" 2>/dev/null || true ;
@@ -145,6 +154,11 @@ done ;
 
 fn_host_do_cmd ln -s "../usr/bin/toybox" "${DESTDIR}/bin/sh" 2>/dev/null || true ;
 fn_host_do_cmd ln -s "../usr/bin/toybox" "${DESTDIR}/bin/bash" 2>/dev/null || true ;
+
+for FILE in bin lib sbin tmp usr usr/bin usr/libexec usr/local usr/share usr/include var Users ; do
+	fn_host_do_cmd touch -d ${MITL_DATE_EPOCH} "${DESTDIR}/${FILE}"/* || true ;
+	fn_host_do_cmd touch -mad ${MITL_DATE_EPOCH} "${DESTDIR}/${FILE}"/* 2>/dev/null || true ;
+done ;
 
 # fn_host_do_cmd sha256sum "${DESTDIR}/${FILE}" || true ;
 

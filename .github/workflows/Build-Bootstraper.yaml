@@ -30,6 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       timestamp: ${{ steps.output_time.outputs.bootstrap-timestamp }}
+      mitl-timestamp: ${{ steps.output_time.outputs.mitl-timestamp }}
     steps:
       - name: Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -44,7 +45,8 @@ jobs:
           printf "%s\n" "::group::bootstrap-MITL-env"
           printf "bootstrap-timestamp=%s\n" $(git log -1 --pretty=%ct) >> "$GITHUB_OUTPUT"
           printf "TIMESTAMP=%s\n" $(git log -1 --pretty=%ct) >> "$GITHUB_ENV"
-          printf "%s %s\n" "MITL-Bootstrap will be synced at time of:" $(git log -1 --pretty=%ct)
+          printf "mitl-timestamp=%s %s\n" $(date -j -f "%s" "$(git log -1 --pretty=%ct)" "+%C%y-%d-%m %H:%M:%S") >> "$GITHUB_OUTPUT"
+          printf "%s %s\n" "MITL-Bootstrap will be synced at time of:" $(date -j -f "%s" "$(git log -1 --pretty=%ct)" "+%C%y-%d-%m %H:%M:%S")
           printf "%s\n" "::endgroup::"
 
   build:
@@ -117,6 +119,7 @@ jobs:
             TOYBOX_VERSION=0.8.12
             TARGETARCH=${{ matrix.architecture }}
             MUSL_VER=1.2.5
+            MITL_DATE_EPOCH=${{ needs.seed.outputs.mitl-timestamp }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
           attests: |
@@ -130,9 +133,11 @@ jobs:
             index.org.opencontainers.image.authors=mitl-maintainers@users.noreply.github.com
             index.org.opencontainers.image.description=Multi-arch MITL Bootstrap image
             index.org.opencontainers.image.vendor=individual
+            index.org.opencontainers.image.licenses="MIT"
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true,annotation-index.org.opencontainers.image.description=Multi-arch MITL Bootstrap image ${{ matrix.architecture }}
         env:
           SOURCE_DATE_EPOCH: ${{ needs.seed.outputs.timestamp }}
+          MITL_DATE_EPOCH: ${{ needs.seed.outputs.mitl-timestamp }}
           TOYBOX_VERSION: "0.8.12"
           MUSL_VER: "1.2.5"
           TARGETARCH: ${{ matrix.architecture }}
