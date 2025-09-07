@@ -18,6 +18,7 @@ RUN set -eux \
     && apk add --no-cache \
         clang \
         llvm \
+        cmd:llvm-ar \
         lld \
         make \
         binutils \
@@ -30,10 +31,10 @@ RUN set -eux \
     && mkdir -p /build
 
 WORKDIR /build
-ENV export CC=clang
-ENV export AR=llvm-ar
-ENV export RANLIB=llvm-ranlib
-ENV export LD=ld.lld
+ENV CC=clang
+ENV AR=llvm-ar
+ENV RANLIB=llvm-ranlib
+ENV LD=ld.lld
 ENV LDFLAGS="-fuse-ld=lld"
 
 # Download musl
@@ -47,7 +48,7 @@ WORKDIR /build/musl
 # Configure, build, and install musl with shared enabled (default) using LLVM tools
 RUN mkdir -p ${MUSL_PREFIX} && \
     ./configure --prefix=${MUSL_PREFIX} && \
-    make -j"$(nproc)" && \
+    make CC=clang CFLAGS="${CFLAGS} -fno-math-errno -fPIC -fno-common" AR=llvm-ar LDFLAGS="${LDFLAGS}" -j"$(nproc)" && \
     make install
 
 # Ensure we have the dynamic loader and libs present (example paths)
