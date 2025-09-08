@@ -9,8 +9,7 @@ FROM --platform="linux/${TARGETARCH}" alpine:latest AS musl-builder
 # shellcheck disable=SC2154
 ARG MUSL_VER=${MUSL_VER:-"1.2.5"}
 ENV MUSL_VER=${MUSL_VER}
-ARG MUSL_PREFIX=/usr/local/musl-llvm-staging
-ENV MUSL_PREFIX=${MUSL_PREFIX:-"/usr/local/musl-llvm-staging"}
+ENV MUSL_PREFIX="/usr/local/musl-llvm-staging"
 
 RUN set -eux \
     && apk add --no-cache \
@@ -97,7 +96,7 @@ ENV LINUX=/usr/include/linux
 # shellcheck disable=SC2154
 ARG MUSL_VER=${MUSL_VER:-"1.2.5"}
 ENV MUSL_VER=${MUSL_VER}
-ENV MUSL_PREFIX=${MUSL_PREFIX:-"/usr/local/musl-llvm-staging"}
+ENV MUSL_PREFIX="/usr/local/musl-llvm-staging"
 
 # Install necessary packages
 # llvm - LLVM-apache-2
@@ -194,6 +193,7 @@ ENV DESTDIR="/output/fs"
 RUN /usr/bin/mkroot.bash && \
     printf "root:x:0:0:root:/root:/bin/sh\n" > "${DESTDIR}"/etc/passwd && \
     printf "/dev/sda / ext4 defaults 0 1\n" > "${DESTDIR}"/etc/fstab && \
+    printf "# List of acceptable shells for chpass(1).\n\n/bin/sh\n/bin/bash\n" > "${DESTDIR}"/etc/shells && \
     touch -d ${MITL_DATE_EPOCH} "${DESTDIR}"/etc/* || true;
 
 # Copy musl runtime artifacts from builder:
