@@ -246,6 +246,16 @@ SHELL [ "/bin/bash", "--norc", "-c" ]
 
 # Set the entry point to Toybox
 ENTRYPOINT ["/usr/bin/toybox"]
+# Set the default path to a reasonable value
+ENV PATH='/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/libexec'
+# musl libc checks TZ
+# format is
+# [SUS/POSIX](https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap08.html#tag_08_03)
+# Set TZ to UTC
+ENV TZ='UTC+0'
+# Set PS1 to something
+ENV PS1="(\A \u@\h \W) > "
+# Set bash to toybox bash
 ENV BASH='/bin/bash'
 ENV HOSTNAME="MITL-bootstrap"
 CMD [ "/bin/bash", "--norc", "-c", "'exec -a bash /bin/bash -i'" ]
