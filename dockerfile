@@ -40,10 +40,11 @@ ARG MITL_DATE_EPOCH
 ENV MITL_DATE_EPOCH=${MITL_DATE_EPOCH}
 
 # Download musl
-RUN set -eux \
-    && curl -fsSLO https://musl.libc.org/releases/musl-${MUSL_VER}.tar.gz \
-    && bsdtar xf musl-${MUSL_VER}.tar.gz \
-    && mv musl-${MUSL_VER} musl
+RUN curl -fsSL \
+    --url "https://musl.libc.org/releases/musl-${MUSL_VER}.tar.gz" \
+    -o musl-${MUSL_VER}.tar.gz && \
+    bsdtar xf musl-${MUSL_VER}.tar.gz && \
+    mv musl-${MUSL_VER} musl
 
 WORKDIR /build/musl
 
