@@ -27,7 +27,7 @@ jobs:
       contents: read
       packages: none
       pull-requests: read
-    runs-on: ubuntu-latest
+    runs-on: macos-latest  # Has FreeBSD date (with -j and -f [format] options)
     outputs:
       timestamp: ${{ steps.output_time.outputs.bootstrap-timestamp }}
       mitl-timestamp: ${{ steps.output_time.outputs.mitl-timestamp }}
