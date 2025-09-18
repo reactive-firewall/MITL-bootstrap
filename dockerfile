@@ -1,14 +1,90 @@
 # syntax=docker/dockerfile:1
-ARG TOYBOX_VERSION=${TOYBOX_VERSION:-"0.8.12"}
+
+# Stage 1: Build Musl
+# Use MIT licensed Alpine as the base image for the build environment
+# shellcheck disable=SC2154
+FROM --platform="linux/${TARGETARCH}" alpine:latest AS musl-builder
 
 # version is passed through by Docker.
 # shellcheck disable=SC2154
+ARG MUSL_VER=${MUSL_VER:-"1.2.5"}
+ENV MUSL_VER=${MUSL_VER}
+ENV MUSL_PREFIX="/usr/local/musl-llvm-staging"
+
+RUN set -eux \
+    && apk add --no-cache \
+        cmd:bsdtar \
+        clang \
+        llvm \
+        cmd:llvm-ar \
+        lld \
+        make \
+        binutils \
+        curl \
+        ca-certificates \
+        build-base \
+        gzip \
+        perl \
+        paxctl \
+    && mkdir -p /build
+
+WORKDIR /build
+ENV CC=clang
+ENV AR=llvm-ar
+ENV RANLIB=llvm-ranlib
+ENV LD=ld.lld
+ENV LDFLAGS="-fuse-ld=lld"
+# epoch is passed through by Docker.
+# shellcheck disable=SC2154
+ARG MITL_DATE_EPOCH
+ENV MITL_DATE_EPOCH=${MITL_DATE_EPOCH}
+
+# Download musl
+RUN curl -fsSL \
+    --url "https://musl.libc.org/releases/musl-${MUSL_VER}.tar.gz" \
+    -o musl-${MUSL_VER}.tar.gz && \
+    bsdtar xf musl-${MUSL_VER}.tar.gz && \
+    mv musl-${MUSL_VER} musl
+
+WORKDIR /build/musl
+
+# Configure, build, and install musl with shared enabled (default) using LLVM tools
+RUN mkdir -p ${MUSL_PREFIX} && \
+    ./configure --prefix=${MUSL_PREFIX} && \
+    make CC=clang CFLAGS="${CFLAGS} -fno-math-errno -fPIC -fno-common" AR=llvm-ar LDFLAGS="${LDFLAGS}" -j"$(nproc)" && \
+    make install
+
+# Ensure we have the dynamic loader and libs present (example paths)
+RUN ls -l ${MUSL_PREFIX}/lib || true \
+    && file ${MUSL_PREFIX}/lib/* || true
+
+# Strip unneeded symbols from shared objects to save space (optional)
+RUN set -eux \
+    && if command -v llvm-strip >/dev/null 2>&1; then \
+         find ${MUSL_PREFIX}/lib -type f -name "*.so*" -exec llvm-strip --strip-unneeded {} + || true; \
+       else \
+         find ${MUSL_PREFIX}/lib -type f -name "*.so*" -exec strip --strip-unneeded {} + || true; \
+       fi
+
+RUN touch -d ${MITL_DATE_EPOCH} ${MUSL_PREFIX}/lib/* || true \
+    && touch -d ${MITL_DATE_EPOCH} ${MUSL_PREFIX}/include/* || true
+
+
+# Stage 2: Build toybox based filesystem
 # Use MIT licensed Alpine as the base image for the build environment
 # shellcheck disable=SC2154
 FROM --platform="linux/${TARGETARCH}" alpine:latest AS builder
 
 # Set environment variables
-ENV TOYBOX_VERSION=${TOYBOX_VERSION:-"0.8.12"}
+
+# epoch is passed through by Docker.
+# shellcheck disable=SC2154
+ARG MITL_DATE_EPOCH
+ENV MITL_DATE_EPOCH=${MITL_DATE_EPOCH}
+# version is passed through by Docker.
+# shellcheck disable=SC2154
+ARG TOYBOX_VERSION=${TOYBOX_VERSION:-"0.8.12"}
+ENV TOYBOX_VERSION=${TOYBOX_VERSION}
 ENV PATH="/usr/local/bin:$PATH"
 ENV CC=clang
 ENV CXX=clang++
@@ -17,6 +93,11 @@ ENV RANLIB=llvm-ranlib
 ENV LDFLAGS="-fuse-ld=lld"
 ENV BSD=/usr/include/bsd
 ENV LINUX=/usr/include/linux
+# version is passed through by Docker.
+# shellcheck disable=SC2154
+ARG MUSL_VER=${MUSL_VER:-"1.2.5"}
+ENV MUSL_VER=${MUSL_VER}
+ENV MUSL_PREFIX="/usr/local/musl-llvm-staging"
 
 # Install necessary packages
 # llvm - LLVM-apache-2
@@ -29,7 +110,7 @@ ENV LINUX=/usr/include/linux
 # libbsd-dev - BSD-3-Clause
 # bash - GPL-3.0 - do not bundle - only until toolbox bash is compiled to run bootstrap scripts
 # curl - curl License / MIT
-# tar - GPL-3.0-or-later - do not bundle - used to unarchive during bootstrap
+# bsdtar - BSD-2 - used to unarchive during bootstrap (transient)
 # openssl-dev - Apache-2.0
 # zlib-dev - zlib license
 
@@ -44,7 +125,7 @@ RUN --mount=type=cache,target=/var/cache/apk,sharing=locked --network=default \
     linux-headers \
     bash \
     curl \
-    tar \
+    cmd:bsdtar \
     openssl-dev \
     libbsd-dev \
     lld \
@@ -56,7 +137,7 @@ RUN mkdir -p /opt && \
     curl -fsSL \
     --url "https://github.com/landley/toybox/archive/refs/tags/${TOYBOX_VERSION}.tar.gz" \
     -o toybox-${TOYBOX_VERSION}.tar.gz && \
-    tar -xzf toybox-${TOYBOX_VERSION}.tar.gz && \
+    bsdtar -xzf toybox-${TOYBOX_VERSION}.tar.gz && \
     rm toybox-${TOYBOX_VERSION}.tar.gz && \
     mv /opt/toybox-${TOYBOX_VERSION} /opt/toybox
 
@@ -111,21 +192,50 @@ ENV DESTDIR="/output/fs"
 
 # Minimal etc
 RUN /usr/bin/mkroot.bash && \
-    printf "root:x:0:0:root:/root:/bin/sh\n" > /output/fs/etc/passwd && \
-    printf "/dev/sda / ext4 defaults 0 1\n" > /output/fs/etc/fstab
+    printf "root:x:0:0:root:/root:/bin/sh\n" > "${DESTDIR}"/etc/passwd && \
+    printf "/dev/sda / ext4 defaults 0 1\n" > "${DESTDIR}"/etc/fstab && \
+    printf "# List of acceptable shells for chpass(1).\n\n/bin/sh\n/bin/bash\n" > "${DESTDIR}"/etc/shells && \
+    touch -d ${MITL_DATE_EPOCH} "${DESTDIR}"/etc/* || true;
 
-# Stage 2: Create the final image
+# Copy musl runtime artifacts from builder:
+# - dynamic loader (ld-musl-*.so.1)
+# - libmusl shared object(s) (libc.so.*)
+# - crt*.o (for static linking if needed)
+# - headers
+COPY --from=musl-builder ${MUSL_PREFIX}/lib/ld-musl-*.so.* "${DESTDIR}"/lib/
+COPY --from=musl-builder ${MUSL_PREFIX}/lib/crt*.o "${DESTDIR}"/lib/
+COPY --from=musl-builder ${MUSL_PREFIX}/lib/libc.so* "${DESTDIR}"/usr/lib/
+COPY --from=musl-builder ${MUSL_PREFIX}/include "${DESTDIR}"/usr/include
+
+RUN touch -d ${MITL_DATE_EPOCH} "${DESTDIR}"/* || true \
+    && touch -d ${MITL_DATE_EPOCH} "${DESTDIR}"/usr/include/* || true \
+    && touch -d ${MITL_DATE_EPOCH} "${DESTDIR}"/usr/lib/* || true
+
+# Some systems expect /lib64 -> /lib for x86_64. Create symlink if appropriate (unsupported by musl).
+RUN set -eux; \
+    if [ "$(uname -m)" = "x86_64" ]; then \
+      [ -d "${DESTDIR}"/lib64 ] || ln -s /lib "${DESTDIR}"/lib64; \
+    fi
+
+# Ensure loader has canonical name (example: /lib/ld-musl-x86_64.so.1)
+RUN set -eux \
+    && for f in "${DESTDIR}"/lib/ld-musl-*; do \
+         ln -fns "$f" "${DESTDIR}"/lib/ld-musl.so.1 || true; \
+       done || true
+
+# Stage 3: Create the final image
 # shellcheck disable=SC2154
 FROM --platform="linux/${TARGETARCH}" scratch AS mitl-bootstrap
 
 # set inherited values
-LABEL version="0.7"
+LABEL version="0.9"
+LABEL maintainer="mitl-maintainers@users.noreply.github.com"
 LABEL org.opencontainers.image.title="MITL-bootstrap"
 LABEL org.opencontainers.image.description="Custom Bootstrap MITL image with toybox installed."
 LABEL org.opencontainers.image.vendor="individual"
 LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.authors="mitl-maintainers@users.noreply.github.com"
-LABEL maintainer="mitl-maintainers@users.noreply.github.com"
+
 
 # Copy built files
 COPY --from=builder /output/fs /
@@ -133,10 +243,20 @@ COPY --from=builder /output/fs /
 # Ensure toybox is reachable at /bin/toybox (symlink if needed)
 COPY --from=builder /output/fs/usr/bin/toybox /bin/toybox
 
-SHELL [ "/bin/bash", "--norc", "-l", "-c" ]
+SHELL [ "/bin/bash", "--norc", "-c" ]
 
 # Set the entry point to Toybox
 ENTRYPOINT ["/usr/bin/toybox"]
+# Set the default path to a reasonable value
+ENV PATH='/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/libexec'
+# musl libc checks TZ
+# format is
+# [SUS/POSIX](https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap08.html#tag_08_03)
+# Set TZ to UTC
+ENV TZ='UTC+0'
+# Set PS1 to something
+ENV PS1="(\A \u@\h \W) > "
+# Set bash to toybox bash
 ENV BASH='/bin/bash'
-ENV HOSTNAME="base-builder"
-CMD [ "/bin/bash", "--norc", "-l", "-c", "'exec -a bash /bin/bash -il'" ]
+ENV HOSTNAME="MITL-bootstrap"
+CMD [ "/bin/bash", "--norc", "-c", "'exec -a bash /bin/bash -i'" ]
