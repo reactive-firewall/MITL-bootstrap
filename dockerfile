@@ -223,7 +223,10 @@ RUN set -eux \
          ln -fns "$f" "${DESTDIR}"/lib/ld-musl.so.1 || true; \
        done || true
 
-# Stage 3: Create the final image
+# Stage 3: Copy over featherHash (0BSD Licensed)
+FROM --platform="linux/${TARGETARCH}" ghcr.io/reactive-firewall/featherhash-shasum:master AS mitl-featherhash
+
+# Stage 4: Create the final image
 # shellcheck disable=SC2154
 FROM --platform="linux/${TARGETARCH}" scratch AS mitl-bootstrap
 
@@ -242,6 +245,11 @@ COPY --from=builder /output/fs /
 
 # Ensure toybox is reachable at /bin/toybox (symlink if needed)
 COPY --from=builder /output/fs/usr/bin/toybox /bin/toybox
+
+# Ensure sha256sum is reachable at /bin/sha256sum
+COPY --from=mitl-featherhash /bin/sha256sum /bin/sha256sum
+COPY --from=mitl-featherhash /bin/sha384sum /bin/sha384sum
+COPY --from=mitl-featherhash /bin/sha512sum /bin/sha512sum
 
 SHELL [ "/bin/bash", "--norc", "-c" ]
 
