@@ -223,11 +223,8 @@ RUN set -eux \
          ln -fns "$f" "${DESTDIR}"/lib/ld-musl.so.1 || true; \
        done || true
 
-# Stage 3: Copy over featherHash
-
-FROM --platform="linux/${TARGETARCH}" ghcr.io/reactive-firewall/featherhash-shasum:sha-96537eb AS mitl-featherhash
-
-
+# Stage 3: Copy over featherHash (0BSD Licensed)
+FROM --platform="linux/${TARGETARCH}" ghcr.io/reactive-firewall/featherhash-shasum:master AS mitl-featherhash
 
 # Stage 4: Create the final image
 # shellcheck disable=SC2154
