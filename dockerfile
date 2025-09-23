@@ -226,7 +226,10 @@ RUN set -eux \
 # Stage 3: Copy over featherHash (0BSD Licensed)
 FROM --platform="linux/${TARGETARCH}" ghcr.io/reactive-firewall/featherhash-shasum:master AS mitl-featherhash
 
-# Stage 4: Create the final image
+# Stage 4: Copy over CinderBool (0BSD Licensed)
+FROM --platform="linux/${TARGETARCH}" ghcr.io/reactive-firewall/cinder-bool:master AS mitl-cinderbool
+
+# Stage 5: Create the final image
 # shellcheck disable=SC2154
 FROM --platform="linux/${TARGETARCH}" scratch AS mitl-bootstrap
 
@@ -248,8 +251,18 @@ COPY --from=builder /output/fs/usr/bin/toybox /bin/toybox
 
 # Ensure sha256sum is reachable at /bin/sha256sum
 COPY --from=mitl-featherhash /bin/sha256sum /bin/sha256sum
+# Ensure sha384sum is reachable at /bin/sha384sum
 COPY --from=mitl-featherhash /bin/sha384sum /bin/sha384sum
+# Ensure sha512sum is reachable at /bin/sha512sum
 COPY --from=mitl-featherhash /bin/sha512sum /bin/sha512sum
+
+# Ensure true is reachable at /bin/true
+COPY --from=mitl-cinderbool /bin/yes /bin/yes
+COPY --from=mitl-cinderbool /bin/true /bin/true
+
+# Ensure false is reachable at /bin/false
+COPY --from=mitl-cinderbool /bin/no /bin/no
+COPY --from=mitl-cinderbool /bin/false /bin/false
 
 SHELL [ "/bin/bash", "--norc", "-c" ]
 
