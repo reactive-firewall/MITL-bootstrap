@@ -43,8 +43,8 @@ ENV LDFLAGS="-fuse-ld=lld"
 # shellcheck disable=SC2154
 ARG MITL_DATE_EPOCH
 ENV MITL_DATE_EPOCH=${MITL_DATE_EPOCH}
-ARG TARGETARCH
-ENV TARGETARCH=${TARGETARCH}
+ARG TARGET_TRIPLE
+ENV TARGET_TRIPLE=${TARGET_TRIPLE}
 
 # Download musl
 RUN curl -fsSL \
@@ -57,7 +57,7 @@ WORKDIR /build/musl
 
 # Configure, build, and install musl with shared enabled (default) using LLVM tools
 RUN mkdir -p ${MUSL_PREFIX} && \
-    ./configure --prefix=${MUSL_PREFIX} --target=${TARGETARCH}-generic-linux-musl && \
+    ./configure --prefix=${MUSL_PREFIX} --target=${TARGET_TRIPLE} && \
     make CC=clang CFLAGS="${CFLAGS} -stdlib=libc++ -rtlib=compiler-rt -fno-math-errno -fPIC -fno-common" AR=llvm-ar LDFLAGS="-fmerge-constants ${LDFLAGS}" -j"$(nproc)" && \
     DESTDIR=${MUSL_SYSROOT} make install
 
