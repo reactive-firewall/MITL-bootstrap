@@ -332,7 +332,7 @@ jobs:
         run: |
           docker run -d --name test-container ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }} /bin/bash -c "while true; do sleep 30; done"
           printf "::group::%s\n" "Testing"
-          docker exec test-container /bin/bash -c "toybox bash -c 'echo Toybox shell is working'" || exit 1
+          docker exec test-container /bin/sh -c "toybox sh -c 'echo Toybox shell is working'" || exit 1
           docker exec test-container /bin/bash --version
           docker exec test-container /bin/bash -c "toybox bash --version"
           docker exec test-container /bin/bash -c "printf '%s\n' 'Toybox printf is working'" || exit 1
@@ -354,7 +354,7 @@ jobs:
           else
             printf "%s\n" "gunzip command is not present in the image."
           fi
-          for REQ_CMD in "bash" "basename" "cat" "chgrp" "chmod" "chown" "cp" "date" "dirname" "find" "grep" "head" "mkdir" "mv" "rm" "sed" "sha256sum" "sha512sum" ; do
+          for REQ_CMD in "bash" "basename" "cat" "chgrp" "chmod" "chown" "cp" "date" "dirname" "find" "grep" "head" "mkdir" "mv" "rm" "sed" "sha256sum" "sha512sum" "true" "false" ; do
             if docker exec test-container /bin/bash -c "which ${REQ_CMD}"; then
               printf "%s\n" "${REQ_CMD:-unknown} command is present in the image." ;
               printf "%s\n" "${REQ_CMD:-unknown} command is configured in the path." ;
@@ -370,7 +370,7 @@ jobs:
             fi ;
           done ;
           printf "::endgroup::\n\n"
-          for REQ_PATH in "/bin" "/usr/" "/sbin" "/usr/bin" "/usr/local/bin" "/usr/local/sbin" "/usr/lib" "/usr/libexec" "/etc" "/var" "/" ; do
+          for REQ_PATH in "/bin" "/usr/" "/sbin" "/lib" "/usr/bin" "/usr/local/bin" "/usr/local/bin" "/usr/local/sbin" "/usr/lib" "/usr/libexec" "/etc" "/var" "/" ; do
             printf "::group::%s\n" "${REQ_PATH}"
             if docker exec test-container /bin/bash -c "test -d ${REQ_PATH}"; then
               printf "%s\n" "${REQ_PATH:-unknown} path is present in the image." ;
