@@ -43,6 +43,8 @@ ENV LDFLAGS="-fuse-ld=lld"
 # shellcheck disable=SC2154
 ARG MITL_DATE_EPOCH
 ENV MITL_DATE_EPOCH=${MITL_DATE_EPOCH}
+ARG TARGETARCH
+ENV TARGETARCH=${TARGETARCH}
 
 # Download musl
 RUN curl -fsSL \
