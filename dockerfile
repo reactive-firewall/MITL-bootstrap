@@ -9,7 +9,8 @@ FROM --platform="linux/${TARGETARCH}" alpine:latest AS musl-builder
 # shellcheck disable=SC2154
 ARG MUSL_VER=${MUSL_VER:-"1.2.5"}
 ENV MUSL_VER=${MUSL_VER}
-ENV MUSL_PREFIX="/usr/local/musl-llvm-staging"
+ENV MUSL_PREFIX="/usr"
+ENV MUSL_SYSROOT="/usr/local/musl-llvm-staging"
 
 RUN set -eux \
     && apk add --no-cache \
@@ -17,6 +18,10 @@ RUN set -eux \
         clang \
         llvm \
         cmd:llvm-ar \
+        libc++ \
+        libc++-dev \
+        compiler-rt \
+        llvm-runtimes \
         lld \
         make \
         binutils \
@@ -50,24 +55,24 @@ WORKDIR /build/musl
 
 # Configure, build, and install musl with shared enabled (default) using LLVM tools
 RUN mkdir -p ${MUSL_PREFIX} && \
-    ./configure --prefix=${MUSL_PREFIX} && \
-    make CC=clang CFLAGS="${CFLAGS} -fno-math-errno -fPIC -fno-common" AR=llvm-ar LDFLAGS="${LDFLAGS}" -j"$(nproc)" && \
-    make install
+    ./configure --prefix=${MUSL_PREFIX} --target=${TARGETARCH}-generic-linux-musl && \
+    make CC=clang CFLAGS="${CFLAGS} -stdlib=libc++ -rtlib=compiler-rt -fno-math-errno -fPIC -fno-common" AR=llvm-ar LDFLAGS="-fmerge-constants ${LDFLAGS}" -j"$(nproc)" && \
+    DESTDIR=${MUSL_SYSROOT} make install
 
 # Ensure we have the dynamic loader and libs present (example paths)
-RUN ls -l ${MUSL_PREFIX}/lib || true \
-    && file ${MUSL_PREFIX}/lib/* || true
+RUN ls -l ${MUSL_SYSROOT}/${MUSL_PREFIX}/lib || true \
+    && file ${MUSL_SYSROOT}/${MUSL_PREFIX}/lib/* || true
 
 # Strip unneeded symbols from shared objects to save space (optional)
 RUN set -eux \
     && if command -v llvm-strip >/dev/null 2>&1; then \
-         find ${MUSL_PREFIX}/lib -type f -name "*.so*" -exec llvm-strip --strip-unneeded {} + || true; \
+         find ${MUSL_SYSROOT}/${MUSL_PREFIX}/lib -type f -name "*.so*" -exec llvm-strip --strip-unneeded {} + || true; \
        else \
-         find ${MUSL_PREFIX}/lib -type f -name "*.so*" -exec strip --strip-unneeded {} + || true; \
+         find ${MUSL_SYSROOT}/${MUSL_PREFIX}/lib -type f -name "*.so*" -exec strip --strip-unneeded {} + || true; \
        fi
 
-RUN touch -d ${MITL_DATE_EPOCH} ${MUSL_PREFIX}/lib/* || true \
-    && touch -d ${MITL_DATE_EPOCH} ${MUSL_PREFIX}/include/* || true
+RUN touch -d ${MITL_DATE_EPOCH} ${MUSL_SYSROOT}/${MUSL_PREFIX}/lib/* || true \
+    && touch -d ${MITL_DATE_EPOCH} ${MUSL_SYSROOT}/${MUSL_PREFIX}/include/* || true
 
 
 # Stage 2: Build toybox based filesystem
@@ -97,7 +102,7 @@ ENV LINUX=/usr/include/linux
 # shellcheck disable=SC2154
 ARG MUSL_VER=${MUSL_VER:-"1.2.5"}
 ENV MUSL_VER=${MUSL_VER}
-ENV MUSL_PREFIX="/usr/local/musl-llvm-staging"
+ENV MUSL_PREFIX="/usr/local/musl-llvm-staging/usr/"
 
 # Install necessary packages
 # llvm - LLVM-apache-2
@@ -181,7 +186,7 @@ RUN if [ -f .config ]; then \
 RUN rm -rf generated flags.* || true && make oldconfig || true
 
 # build with clang and lld
-RUN make V=1 CC=clang CFLAGS="-fno-math-errno -fstrict-aliasing -fPIC -fno-common" AR=llvm-ar LINUX="${LINUX}" LDFLAGS="${LDFLAGS}" toybox root && \
+RUN make V=1 CC=clang CFLAGS="-fno-math-errno -fstrict-aliasing -fPIC -fno-common" AR=llvm-ar LINUX="${LINUX}" LDFLAGS="-fmerge-constants ${LDFLAGS}" toybox root && \
     mkdir -p /output/usr/bin /output/etc /output/lib && \
     make install PREFIX=/usr DESTDIR=/output
 
