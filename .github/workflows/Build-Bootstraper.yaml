@@ -354,7 +354,7 @@ jobs:
           else
             printf "%s\n" "gunzip command is not present in the image."
           fi
-          for REQ_CMD in "bash" "basename" "cat" "chgrp" "chmod" "chown" "cp" "date" "dirname" "find" "grep" "head" "mkdir" "mv" "rm" "sed" "sha256sum" "sha512sum" "true" "false" ; do
+          for REQ_CMD in "bash" "basename" "cat" "chgrp" "chmod" "chown" "cp" "date" "dirname" "find" "grep" "head" "mkdir" "mv" "rm" "sed" "sh" "sha256sum" "sha512sum" "true" "false" ; do
             if docker exec test-container /bin/bash -c "which ${REQ_CMD}"; then
               printf "%s\n" "${REQ_CMD:-unknown} command is present in the image." ;
               printf "%s\n" "${REQ_CMD:-unknown} command is configured in the path." ;
@@ -383,6 +383,9 @@ jobs:
               if docker exec test-container /bin/bash -c "test -e ${REQ_PATH}"; then
                 printf "%s\n" "${REQ_PATH:-unknown} path is present in the image." ;
                 printf "%s\n" "${REQ_PATH:-unknown} path is not a directory in the image." ;
+                printf "::endgroup::\n"
+                printf "::group::%s\n" "Stats"
+                docker exec test-container /bin/bash -c "ls -la ${REQ_PATH}" ;
                 printf "::endgroup::\n"
               else
                 printf "%s\n" "${REQ_PATH:-unknown} path is not present in the image."
