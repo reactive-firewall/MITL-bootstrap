@@ -124,13 +124,13 @@ fn_host_do_cmd() {
 for FILE in bin lib sbin tmp usr usr/bin usr/libexec usr/local usr/share usr/include var Users ; do
 	fn_host_do_cmd mkdir -p "${DESTDIR}/${FILE}" ;
 	fn_host_do_cmd chmod 755 "${DESTDIR}/${FILE}" || true ;
-	fn_host_do_cmd touch -d ${MITL_DATE_EPOCH} "${DESTDIR}/${FILE}" || true ;
-	fn_host_do_cmd touch -mad ${MITL_DATE_EPOCH} "${DESTDIR}/${FILE}" 2>/dev/null || true ;
+	fn_host_do_cmd touch -d "${MITL_DATE_EPOCH}" "${DESTDIR}/${FILE}" || true ;
+	fn_host_do_cmd touch -mad "${MITL_DATE_EPOCH}" "${DESTDIR}/${FILE}" 2>/dev/null || true ;
 done ;
 
 # basic sym-links
 for FILE in sbin lib ; do
-	fn_host_do_cmd ln -s ../../"${FILE}" "${DESTDIR}/usr/${FILE}" ;
+	fn_host_do_cmd ln -s "../../${FILE}" "${DESTDIR}/usr/${FILE}" ;
 done ;
 
 # fn_host_do_cmd ln -s ../"Users" "${DESTDIR}/home" ;
@@ -140,13 +140,13 @@ fn_host_do_cmd rm "${HOST_TOOLCHAIN_PATH}/etc/os-release" 2>/dev/null || true ;
 
 for FILE in dev etc init usr/lib mnt ; do
 	fn_host_do_cmd mv "${HOST_TOOLCHAIN_PATH}/${FILE}" "${DESTDIR}/${FILE}" ;
-	fn_host_do_cmd touch -d ${MITL_DATE_EPOCH} "${DESTDIR}/${FILE}" || true ;
-	fn_host_do_cmd touch -mad ${MITL_DATE_EPOCH} "${DESTDIR}/${FILE}" 2>/dev/null || true ;
+	fn_host_do_cmd touch -d "${MITL_DATE_EPOCH}" "${DESTDIR}/${FILE}" || true ;
+	fn_host_do_cmd touch -mad "${MITL_DATE_EPOCH}" "${DESTDIR}/${FILE}" 2>/dev/null || true ;
 done ;
 
 fn_host_do_cmd cp -f "${HOST_TOOLCHAIN_PATH}/usr/bin/toybox" "${DESTDIR}/usr/bin/toybox" 2>/dev/null || true ;
-fn_host_do_cmd touch -d ${MITL_DATE_EPOCH} "${DESTDIR}/usr/bin/toybox" || true ;
-fn_host_do_cmd touch -mad ${MITL_DATE_EPOCH} "${DESTDIR}/usr/bin/toybox" 2>/dev/null || true ;
+fn_host_do_cmd touch -d "${MITL_DATE_EPOCH}" "${DESTDIR}/usr/bin/toybox" || true ;
+fn_host_do_cmd touch -mad "${MITL_DATE_EPOCH}" "${DESTDIR}/usr/bin/toybox" 2>/dev/null || true ;
 
 for FILE in "bash" "basename" "cat" "chgrp" "chmod" "chown" "cp" "date" "dirname" "find" "grep" "head" "halt" "ls" "ln" "mkdir" "mv" "printf" "rm" "sed" ; do
 	fn_host_do_cmd ln -s "toybox" "${DESTDIR}/usr/bin/${FILE}" 2>/dev/null || true ;
@@ -156,8 +156,8 @@ fn_host_do_cmd ln -s "../usr/bin/toybox" "${DESTDIR}/bin/sh" 2>/dev/null || true
 fn_host_do_cmd ln -s "../usr/bin/toybox" "${DESTDIR}/bin/bash" 2>/dev/null || true ;
 
 for FILE in bin lib sbin tmp usr usr/bin usr/libexec usr/local usr/share usr/include var Users ; do
-	fn_host_do_cmd touch -d ${MITL_DATE_EPOCH} "${DESTDIR}/${FILE}"/* || true ;
-	fn_host_do_cmd touch -mad ${MITL_DATE_EPOCH} "${DESTDIR}/${FILE}"/* 2>/dev/null || true ;
+	fn_host_do_cmd touch -d "${MITL_DATE_EPOCH}" "${DESTDIR}/${FILE}/*" || true ;
+	fn_host_do_cmd touch -mad "${MITL_DATE_EPOCH}" "${DESTDIR}/${FILE}/*" 2>/dev/null || true ;
 done ;
 
 # fn_host_do_cmd sha256sum "${DESTDIR}/${FILE}" || true ;

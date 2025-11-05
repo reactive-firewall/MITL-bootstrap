@@ -78,9 +78,35 @@ jobs:
           submodules: false
 
       - name: Prepare
+        id: prep_output
         run: |
           platform=linux/${{ matrix.architecture }}
           echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+          if [ "${{ matrix.architecture }}" == "amd64" ]; then
+            echo "TARGET_TRIPLE=x86_64-generic-none-musl" >> $GITHUB_ENV
+            echo "target-triple=x86_64-generic-none-musl" >> "$GITHUB_OUTPUT"
+            echo "HOST_TRIPLE=x86_64-alpine-linux-musl" >> $GITHUB_ENV
+            echo "host-triple=x86_64-alpine-linux-musl" >> "$GITHUB_OUTPUT"
+            echo "MUSL_LDLIB=ld-musl-x86_64.so.1" >> $GITHUB_ENV
+            echo "musl-ldlib=ld-musl-x86_64.so.1" >> "$GITHUB_OUTPUT"
+          elif [ "${{ matrix.architecture }}" == "arm64" ]; then
+            echo "TARGET_TRIPLE=aarch64-generic-none-musl" >> $GITHUB_ENV
+            echo "target-triple=aarch64-generic-none-musl" >> "$GITHUB_OUTPUT"
+            echo "HOST_TRIPLE=aarch64-alpine-linux-musl" >> $GITHUB_ENV
+            echo "host-triple=aarch64-alpine-linux-musl" >> "$GITHUB_OUTPUT"
+            echo "MUSL_LDLIB=ld-musl-aarch64.so.1" >> $GITHUB_ENV
+            echo "musl-ldlib=ld-musl-aarch64.so.1" >> "$GITHUB_OUTPUT"
+          elif [ "${{ matrix.architecture }}" == "arm" ]; then
+            echo "TARGET_TRIPLE=arm-generic-none-musleabi" >> $GITHUB_ENV
+            echo "target-triple=arm-generic-none-musleabi" >> "$GITHUB_OUTPUT"
+            echo "HOST_TRIPLE=arm-alpine-linux-musleabi" >> $GITHUB_ENV
+            echo "host-triple=arm-alpine-linux-musleabi" >> "$GITHUB_OUTPUT"
+            echo "MUSL_LDLIB=ld-musl-armhf.so.1" >> $GITHUB_ENV
+            echo "musl-ldlib=ld-musl-armhf.so.1" >> "$GITHUB_OUTPUT"
+          else
+            echo "Unsupported architecture: ${{ matrix.architecture }}"
+            exit 1
+          fi
 
         # QEMU setup only for armv7 emulation
       - name: Set up QEMU (for armv7)
@@ -126,7 +152,10 @@ jobs:
           build-args: |
             TOYBOX_VERSION=0.8.12
             TARGETARCH=${{ matrix.architecture }}
+            TARGET_TRIPLE=${{ steps.prep_output.outputs.target-triple }}
+            HOST_TRIPLE=${{ steps.prep_output.outputs.host-triple }}
             MUSL_VER=1.2.5
+            MUSL_LDLIB=${{ steps.prep_output.outputs.musl-ldlib }}
             MITL_DATE_EPOCH=${{ needs.seed.outputs.mitl-timestamp }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
@@ -144,6 +173,9 @@ jobs:
             index.org.opencontainers.image.licenses="MIT"
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true,annotation-index.org.opencontainers.image.description=Multi-arch MITL Bootstrap image ${{ matrix.architecture }}
         env:
+          TARGET_TRIPLE: ${{ steps.prep_output.outputs.target-triple }}
+          HOST_TRIPLE: ${{ steps.prep_output.outputs.host-triple }}
+          MUSL_LDLIB: ${{ steps.prep_output.outputs.musl-ldlib }}
           SOURCE_DATE_EPOCH: ${{ needs.seed.outputs.timestamp }}
           MITL_DATE_EPOCH: ${{ needs.seed.outputs.mitl-timestamp }}
           TOYBOX_VERSION: "0.8.12"
@@ -159,7 +191,7 @@ jobs:
         run: docker logout
 
       - name: Upload digest
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: digests-${{ env.PLATFORM_PAIR }}
           path: ${{ runner.temp }}/digests/*
@@ -187,7 +219,7 @@ jobs:
           submodules: false
 
       - name: Download digests
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           path: ${{ runner.temp }}/digests
           pattern: digests-*
@@ -263,7 +295,7 @@ jobs:
           # (grype exits non-zero on findings; keep the job green by allowing non-zero)
 
       - name: Upload per-arch SBOM and Grype report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: sbom-and-scan
           path: |
@@ -308,7 +340,7 @@ jobs:
         run: |
           docker run -d --name test-container ghcr.io/reactive-firewall/mitl-bootstrap:${{ needs.merge.outputs.merge_version }} /bin/bash -c "while true; do sleep 30; done"
           printf "::group::%s\n" "Testing"
-          docker exec test-container /bin/bash -c "toybox bash -c 'echo Toybox shell is working'" || exit 1
+          docker exec test-container /bin/sh -c "toybox sh -c 'echo Toybox shell is working'" || exit 1
           docker exec test-container /bin/bash --version
           docker exec test-container /bin/bash -c "toybox bash --version"
           docker exec test-container /bin/bash -c "printf '%s\n' 'Toybox printf is working'" || exit 1
@@ -330,7 +362,7 @@ jobs:
           else
             printf "%s\n" "gunzip command is not present in the image."
           fi
-          for REQ_CMD in "bash" "basename" "cat" "chgrp" "chmod" "chown" "cp" "date" "dirname" "find" "grep" "head" "mkdir" "mv" "rm" "sed" "sha256sum" "sha512sum" ; do
+          for REQ_CMD in "bash" "basename" "cat" "chgrp" "chmod" "chown" "cp" "date" "dirname" "find" "grep" "head" "mkdir" "mv" "rm" "sed" "sh" "sha256sum" "sha512sum" "true" "false" ; do
             if docker exec test-container /bin/bash -c "which ${REQ_CMD}"; then
               printf "%s\n" "${REQ_CMD:-unknown} command is present in the image." ;
               printf "%s\n" "${REQ_CMD:-unknown} command is configured in the path." ;
@@ -346,7 +378,7 @@ jobs:
             fi ;
           done ;
           printf "::endgroup::\n\n"
-          for REQ_PATH in "/bin" "/usr/" "/sbin" "/usr/bin" "/usr/local/bin" "/usr/local/sbin" "/usr/lib" "/usr/libexec" "/etc" "/var" "/" ; do
+          for REQ_PATH in "/bin" "/usr/" "/sbin" "/lib" "/usr/bin" "/usr/local/bin" "/usr/local/bin" "/usr/local/sbin" "/usr/lib" "/usr/libexec" "/etc" "/var" "/" ; do
             printf "::group::%s\n" "${REQ_PATH}"
             if docker exec test-container /bin/bash -c "test -d ${REQ_PATH}"; then
               printf "%s\n" "${REQ_PATH:-unknown} path is present in the image." ;
@@ -359,6 +391,9 @@ jobs:
               if docker exec test-container /bin/bash -c "test -e ${REQ_PATH}"; then
                 printf "%s\n" "${REQ_PATH:-unknown} path is present in the image." ;
                 printf "%s\n" "${REQ_PATH:-unknown} path is not a directory in the image." ;
+                printf "::endgroup::\n"
+                printf "::group::%s\n" "Stats"
+                docker exec test-container /bin/bash -c "ls -la ${REQ_PATH}" ;
                 printf "::endgroup::\n"
               else
                 printf "%s\n" "${REQ_PATH:-unknown} path is not present in the image."

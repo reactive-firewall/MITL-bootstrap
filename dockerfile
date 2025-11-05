@@ -9,7 +9,8 @@ FROM --platform="linux/${TARGETARCH}" alpine:latest AS musl-builder
 # shellcheck disable=SC2154
 ARG MUSL_VER=${MUSL_VER:-"1.2.5"}
 ENV MUSL_VER=${MUSL_VER}
-ENV MUSL_PREFIX="/usr/local/musl-llvm-staging"
+ENV MUSL_PREFIX="/usr"
+ENV MUSL_SYSROOT="/usr/local/musl-llvm-staging"
 
 RUN set -eux \
     && apk add --no-cache \
@@ -17,6 +18,10 @@ RUN set -eux \
         clang \
         llvm \
         cmd:llvm-ar \
+        libc++ \
+        libc++-dev \
+        compiler-rt \
+        llvm-runtimes \
         lld \
         make \
         binutils \
@@ -26,7 +31,8 @@ RUN set -eux \
         gzip \
         perl \
         paxctl \
-    && mkdir -p /build
+    && mkdir -vp /build \
+    && mkdir -vp "${MUSL_SYSROOT}"
 
 WORKDIR /build
 ENV CC=clang
@@ -38,6 +44,8 @@ ENV LDFLAGS="-fuse-ld=lld"
 # shellcheck disable=SC2154
 ARG MITL_DATE_EPOCH
 ENV MITL_DATE_EPOCH=${MITL_DATE_EPOCH}
+ARG TARGET_TRIPLE
+ENV TARGET_TRIPLE=${TARGET_TRIPLE}
 
 # Download musl
 RUN curl -fsSL \
@@ -50,25 +58,33 @@ WORKDIR /build/musl
 
 # Configure, build, and install musl with shared enabled (default) using LLVM tools
 RUN mkdir -p ${MUSL_PREFIX} && \
-    ./configure --prefix=${MUSL_PREFIX} && \
-    make CC=clang CFLAGS="${CFLAGS} -fno-math-errno -fPIC -fno-common" AR=llvm-ar LDFLAGS="${LDFLAGS}" -j"$(nproc)" && \
-    make install
+    ./configure --prefix=${MUSL_PREFIX} --target=${TARGET_TRIPLE} \
+      CC=clang CFLAGS="${CFLAGS} -stdlib=libc++ -rtlib=compiler-rt -fno-math-errno -fPIC -fno-common" AR=llvm-ar LDFLAGS="${LDFLAGS}" && \
+    make -j"$(nproc)" && \
+    DESTDIR=${MUSL_SYSROOT} make install
 
-# Ensure we have the dynamic loader and libs present (example paths)
-RUN ls -l ${MUSL_PREFIX}/lib || true \
-    && file ${MUSL_PREFIX}/lib/* || true
+# Ensure we have the dynamic loader and libs present
+RUN ls -l ${MUSL_SYSROOT}${MUSL_PREFIX}/lib || true \
+    && file ${MUSL_SYSROOT}${MUSL_PREFIX}/lib/* || true
 
 # Strip unneeded symbols from shared objects to save space (optional)
 RUN set -eux \
     && if command -v llvm-strip >/dev/null 2>&1; then \
-         find ${MUSL_PREFIX}/lib -type f -name "*.so*" -exec llvm-strip --strip-unneeded {} + || true; \
+         find ${MUSL_SYSROOT}${MUSL_PREFIX}/lib -type f -name "*.so*" -exec llvm-strip --strip-unneeded {} + || true; \
+         find ${MUSL_SYSROOT}${MUSL_PREFIX}/lib -type f -name "*.o*" -exec llvm-strip --strip-unneeded {} + || true; \
        else \
-         find ${MUSL_PREFIX}/lib -type f -name "*.so*" -exec strip --strip-unneeded {} + || true; \
+         find ${MUSL_SYSROOT}${MUSL_PREFIX}/lib -type f -name "*.so*" -exec strip --strip-unneeded {} + || true; \
+         find ${MUSL_SYSROOT}${MUSL_PREFIX}/lib -type f -name "*.o*" -exec strip --strip-unneeded {} + || true; \
        fi
 
-RUN touch -d ${MITL_DATE_EPOCH} ${MUSL_PREFIX}/lib/* || true \
-    && touch -d ${MITL_DATE_EPOCH} ${MUSL_PREFIX}/include/* || true
+RUN find ${MUSL_SYSROOT}${MUSL_PREFIX}/lib -type f -name "*.so" -exec touch -d "${MITL_DATE_EPOCH}" {} + || true; \
+    find ${MUSL_SYSROOT}${MUSL_PREFIX}/lib -type f -name "*.o" -exec touch -d "${MITL_DATE_EPOCH}" {} + || true; \
+    find ${MUSL_SYSROOT}${MUSL_PREFIX}/lib -type f -name "*.a" -exec touch -d "${MITL_DATE_EPOCH}" {} + || true; \
+    find ${MUSL_SYSROOT}${MUSL_PREFIX}/include -type f -exec touch -d "${MITL_DATE_EPOCH}" {} + || true;
 
+# Ensure we have the dynamic loader and libs striped and set
+RUN ls -l ${MUSL_SYSROOT}${MUSL_PREFIX}/lib || true \
+    && file ${MUSL_SYSROOT}${MUSL_PREFIX}/lib/* || true
 
 # Stage 2: Build toybox based filesystem
 # Use MIT licensed Alpine as the base image for the build environment
@@ -97,7 +113,9 @@ ENV LINUX=/usr/include/linux
 # shellcheck disable=SC2154
 ARG MUSL_VER=${MUSL_VER:-"1.2.5"}
 ENV MUSL_VER=${MUSL_VER}
-ENV MUSL_PREFIX="/usr/local/musl-llvm-staging"
+ENV MUSL_PREFIX="/usr/local/musl-llvm-staging/usr"
+ARG MUSL_LDLIB
+ENV MUSL_LDLIB="${MUSL_LDLIB}"
 
 # Install necessary packages
 # llvm - LLVM-apache-2
@@ -181,7 +199,7 @@ RUN if [ -f .config ]; then \
 RUN rm -rf generated flags.* || true && make oldconfig || true
 
 # build with clang and lld
-RUN make V=1 CC=clang CFLAGS="-fno-math-errno -fstrict-aliasing -fPIC -fno-common" AR=llvm-ar LINUX="${LINUX}" LDFLAGS="${LDFLAGS}" toybox root && \
+RUN make V=1 CC=clang CFLAGS="-fno-math-errno -fstrict-aliasing -fPIC -fno-common" AR=llvm-ar LINUX="${LINUX}" LDFLAGS="-fmerge-constants ${LDFLAGS}" toybox root && \
     mkdir -p /output/usr/bin /output/etc /output/lib && \
     make install PREFIX=/usr DESTDIR=/output
 
@@ -195,21 +213,20 @@ RUN /usr/bin/mkroot.bash && \
     printf "root:x:0:0:root:/root:/bin/sh\n" > "${DESTDIR}"/etc/passwd && \
     printf "/dev/sda / ext4 defaults 0 1\n" > "${DESTDIR}"/etc/fstab && \
     printf "# List of acceptable shells for chpass(1).\n\n/bin/sh\n/bin/bash\n" > "${DESTDIR}"/etc/shells && \
-    touch -d ${MITL_DATE_EPOCH} "${DESTDIR}"/etc/* || true;
+    touch -d "${MITL_DATE_EPOCH}" "${DESTDIR}"/etc/* || true;
 
 # Copy musl runtime artifacts from builder:
 # - dynamic loader (ld-musl-*.so.1)
 # - libmusl shared object(s) (libc.so.*)
 # - crt*.o (for static linking if needed)
 # - headers
-COPY --from=musl-builder ${MUSL_PREFIX}/lib/ld-musl-*.so.* "${DESTDIR}"/lib/
-COPY --from=musl-builder ${MUSL_PREFIX}/lib/crt*.o "${DESTDIR}"/lib/
-COPY --from=musl-builder ${MUSL_PREFIX}/lib/libc.so* "${DESTDIR}"/usr/lib/
+COPY --from=musl-builder ${MUSL_PREFIX}/lib "${DESTDIR}"/lib
 COPY --from=musl-builder ${MUSL_PREFIX}/include "${DESTDIR}"/usr/include
 
-RUN touch -d ${MITL_DATE_EPOCH} "${DESTDIR}"/* || true \
-    && touch -d ${MITL_DATE_EPOCH} "${DESTDIR}"/usr/include/* || true \
-    && touch -d ${MITL_DATE_EPOCH} "${DESTDIR}"/usr/lib/* || true
+RUN find "${DESTDIR}"/lib -type f -name "*.so" -exec touch -d "${MITL_DATE_EPOCH}" {} + || true; \
+    find "${DESTDIR}"/lib -type f -name "*.o" -exec touch -d "${MITL_DATE_EPOCH}" {} + || true; \
+    find "${DESTDIR}"/lib -type f -name "*.a" -exec touch -d "${MITL_DATE_EPOCH}" {} + || true; \
+    find "${DESTDIR}"/usr/include -type f -exec touch -d "${MITL_DATE_EPOCH}" {} + || true;
 
 # Some systems expect /lib64 -> /lib for x86_64. Create symlink if appropriate (unsupported by musl).
 RUN set -eux; \
@@ -219,9 +236,8 @@ RUN set -eux; \
 
 # Ensure loader has canonical name (example: /lib/ld-musl-x86_64.so.1)
 RUN set -eux \
-    && for f in "${DESTDIR}"/lib/ld-musl-*; do \
-         ln -fns "$f" "${DESTDIR}"/lib/ld-musl.so.1 || true; \
-       done || true
+    && ln -fns /lib/libc.so "${DESTDIR}/lib/${MUSL_LDLIB}" \
+    && ln -fns "/lib/${MUSL_LDLIB}" "${DESTDIR}/lib/ld-musl.so.1"
 
 # Stage 3: Copy over featherHash (0BSD Licensed)
 FROM --platform="linux/${TARGETARCH}" ghcr.io/reactive-firewall/featherhash-shasum:master AS mitl-featherhash
