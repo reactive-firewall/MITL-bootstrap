@@ -114,6 +114,8 @@ ENV LINUX=/usr/include/linux
 ARG MUSL_VER=${MUSL_VER:-"1.2.5"}
 ENV MUSL_VER=${MUSL_VER}
 ENV MUSL_PREFIX="/usr/local/musl-llvm-staging/usr"
+ARG MUSL_LDLIB
+ENV MUSL_LDLIB="${MUSL_LDLIB}"
 
 # Install necessary packages
 # llvm - LLVM-apache-2
@@ -234,12 +236,8 @@ RUN set -eux; \
 
 # Ensure loader has canonical name (example: /lib/ld-musl-x86_64.so.1)
 RUN set -eux \
-    && for suffix in "-armv7" "-mips64" "-mips" "-riscv64" "-ppc64le" "-x86_64" "-aarch64" ; do \
-        candidate="${DESTDIR}/lib/ld-musl${suffix}.so.1"; \
-        if [ -e "${candidate}" ]; then \
-            ln -fns "$(basename "${candidate}")" "${DESTDIR}/lib/ld-musl.so.1" || true; \
-        fi; \
-    done || true
+    && ln -fns /lib/libc.so "${DESTDIR}/lib/${MUSL_LDLIB}" \
+    && ln -fns "/lib/${MUSL_LDLIB}" "${DESTDIR}/lib/ld-musl.so.1"
 
 # Stage 3: Copy over featherHash (0BSD Licensed)
 FROM --platform="linux/${TARGETARCH}" ghcr.io/reactive-firewall/featherhash-shasum:master AS mitl-featherhash

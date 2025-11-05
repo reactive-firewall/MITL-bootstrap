@@ -87,16 +87,22 @@ jobs:
             echo "target-triple=x86_64-generic-none-musl" >> "$GITHUB_OUTPUT"
             echo "HOST_TRIPLE=x86_64-alpine-linux-musl" >> $GITHUB_ENV
             echo "host-triple=x86_64-alpine-linux-musl" >> "$GITHUB_OUTPUT"
+            echo "MUSL_LDLIB=ld-musl-x86_64.so.1" >> $GITHUB_ENV
+            echo "musl-ldlib=ld-musl-x86_64.so.1" >> "$GITHUB_OUTPUT"
           elif [ "${{ matrix.architecture }}" == "arm64" ]; then
             echo "TARGET_TRIPLE=aarch64-generic-none-musl" >> $GITHUB_ENV
             echo "target-triple=aarch64-generic-none-musl" >> "$GITHUB_OUTPUT"
             echo "HOST_TRIPLE=aarch64-alpine-linux-musl" >> $GITHUB_ENV
             echo "host-triple=aarch64-alpine-linux-musl" >> "$GITHUB_OUTPUT"
+            echo "MUSL_LDLIB=ld-musl-aarch64.so.1" >> $GITHUB_ENV
+            echo "musl-ldlib=ld-musl-aarch64.so.1" >> "$GITHUB_OUTPUT"
           elif [ "${{ matrix.architecture }}" == "arm" ]; then
             echo "TARGET_TRIPLE=arm-generic-none-musleabi" >> $GITHUB_ENV
             echo "target-triple=arm-generic-none-musleabi" >> "$GITHUB_OUTPUT"
             echo "HOST_TRIPLE=arm-alpine-linux-musleabi" >> $GITHUB_ENV
             echo "host-triple=arm-alpine-linux-musleabi" >> "$GITHUB_OUTPUT"
+            echo "MUSL_LDLIB=ld-musl-armhf.so.1" >> $GITHUB_ENV
+            echo "musl-ldlib=ld-musl-armhf.so.1" >> "$GITHUB_OUTPUT"
           else
             echo "Unsupported architecture: ${{ matrix.architecture }}"
             exit 1
@@ -149,6 +155,7 @@ jobs:
             TARGET_TRIPLE=${{ steps.prep_output.outputs.target-triple }}
             HOST_TRIPLE=${{ steps.prep_output.outputs.host-triple }}
             MUSL_VER=1.2.5
+            MUSL_LDLIB=${{ steps.prep_output.outputs.musl-ldlib }}
             MITL_DATE_EPOCH=${{ needs.seed.outputs.mitl-timestamp }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
@@ -168,6 +175,7 @@ jobs:
         env:
           TARGET_TRIPLE: ${{ steps.prep_output.outputs.target-triple }}
           HOST_TRIPLE: ${{ steps.prep_output.outputs.host-triple }}
+          MUSL_LDLIB: ${{ steps.prep_output.outputs.musl-ldlib }}
           SOURCE_DATE_EPOCH: ${{ needs.seed.outputs.timestamp }}
           MITL_DATE_EPOCH: ${{ needs.seed.outputs.mitl-timestamp }}
           TOYBOX_VERSION: "0.8.12"
