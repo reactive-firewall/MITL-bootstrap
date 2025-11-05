@@ -156,8 +156,8 @@ fn_host_do_cmd ln -s "../usr/bin/toybox" "${DESTDIR}/bin/sh" 2>/dev/null || true
 fn_host_do_cmd ln -s "../usr/bin/toybox" "${DESTDIR}/bin/bash" 2>/dev/null || true ;
 
 for FILE in bin lib sbin tmp usr usr/bin usr/libexec usr/local usr/share usr/include var Users ; do
-	fn_host_do_cmd touch -d "${MITL_DATE_EPOCH}" "${DESTDIR}/${FILE}"/* || true ;
-	fn_host_do_cmd touch -mad "${MITL_DATE_EPOCH}" "${DESTDIR}/${FILE}"/* 2>/dev/null || true ;
+	fn_host_do_cmd touch -d "${MITL_DATE_EPOCH}" "${DESTDIR}/${FILE}/*" || true ;
+	fn_host_do_cmd touch -mad "${MITL_DATE_EPOCH}" "${DESTDIR}/${FILE}/*" 2>/dev/null || true ;
 done ;
 
 # fn_host_do_cmd sha256sum "${DESTDIR}/${FILE}" || true ;
