@@ -150,11 +150,11 @@ jobs:
           tags: ghcr.io/reactive-firewall/mitl-bootstrap
           platforms: linux/${{ matrix.architecture }}
           build-args: |
-            TOYBOX_VERSION=0.8.12
+            TOYBOX_VERSION=0.8.13
             TARGETARCH=${{ matrix.architecture }}
             TARGET_TRIPLE=${{ steps.prep_output.outputs.target-triple }}
             HOST_TRIPLE=${{ steps.prep_output.outputs.host-triple }}
-            MUSL_VER=1.2.5
+            MUSL_VER=1.2.6
             MUSL_LDLIB=${{ steps.prep_output.outputs.musl-ldlib }}
             MITL_DATE_EPOCH=${{ needs.seed.outputs.mitl-timestamp }}
           cache-from: type=local,src=/tmp/.buildx-cache
@@ -178,8 +178,8 @@ jobs:
           MUSL_LDLIB: ${{ steps.prep_output.outputs.musl-ldlib }}
           SOURCE_DATE_EPOCH: ${{ needs.seed.outputs.timestamp }}
           MITL_DATE_EPOCH: ${{ needs.seed.outputs.mitl-timestamp }}
-          TOYBOX_VERSION: "0.8.12"
-          MUSL_VER: "1.2.5"
+          TOYBOX_VERSION: "0.8.13"
+          MUSL_VER: "1.2.6"
           TARGETARCH: ${{ matrix.architecture }}
       - name: Export digest
         run: |

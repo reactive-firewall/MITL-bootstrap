@@ -7,7 +7,7 @@ FROM --platform="linux/${TARGETARCH}" alpine:latest AS musl-builder
 
 # version is passed through by Docker.
 # shellcheck disable=SC2154
-ARG MUSL_VER=${MUSL_VER:-"1.2.5"}
+ARG MUSL_VER=${MUSL_VER:-"1.2.6"}
 ENV MUSL_VER=${MUSL_VER}
 ENV MUSL_PREFIX="/usr"
 ENV MUSL_SYSROOT="/usr/local/musl-llvm-staging"
@@ -99,7 +99,7 @@ ARG MITL_DATE_EPOCH
 ENV MITL_DATE_EPOCH=${MITL_DATE_EPOCH}
 # version is passed through by Docker.
 # shellcheck disable=SC2154
-ARG TOYBOX_VERSION=${TOYBOX_VERSION:-"0.8.12"}
+ARG TOYBOX_VERSION=${TOYBOX_VERSION:-"0.8.13"}
 ENV TOYBOX_VERSION=${TOYBOX_VERSION}
 ENV PATH="/usr/local/bin:$PATH"
 ENV CC=clang
@@ -111,7 +111,7 @@ ENV BSD=/usr/include/bsd
 ENV LINUX=/usr/include/linux
 # version is passed through by Docker.
 # shellcheck disable=SC2154
-ARG MUSL_VER=${MUSL_VER:-"1.2.5"}
+ARG MUSL_VER=${MUSL_VER:-"1.2.6"}
 ENV MUSL_VER=${MUSL_VER}
 ENV MUSL_PREFIX="/usr/local/musl-llvm-staging/usr"
 ARG MUSL_LDLIB
