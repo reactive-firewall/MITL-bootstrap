@@ -59,7 +59,9 @@ WORKDIR /build/musl
 # Configure, build, and install musl with shared enabled (default) using LLVM tools
 RUN mkdir -p ${MUSL_PREFIX} && \
     ./configure --prefix=${MUSL_PREFIX} --target=${TARGET_TRIPLE} \
-      CC=clang CFLAGS="${CFLAGS} -stdlib=libc++ -rtlib=compiler-rt -fno-math-errno -fPIC -fno-common" AR=llvm-ar LDFLAGS="${LDFLAGS}" && \
+      --enable-wrapper=clang \
+      AR=llvm-ar RANLIB=llvm-ranlib \
+      CC=clang CFLAGS="${CFLAGS} -stdlib=libc++ -rtlib=compiler-rt -fno-math-errno -fPIC -fno-common" LDFLAGS="${LDFLAGS}" && \
     make -j"$(nproc)" && \
     DESTDIR=${MUSL_SYSROOT} make install
 
